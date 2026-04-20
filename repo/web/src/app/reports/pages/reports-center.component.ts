@@ -12,10 +12,10 @@ import { catchError, of } from 'rxjs';
 
 interface ReportRun {
   id: string;
-  type: string;
+  kind: string;
   status: string;
-  filePath: string | null;
-  queuedAt: string;
+  outputPath: string | null;
+  createdAt: string;
   completedAt: string | null;
   requestedBy: string;
 }
@@ -24,6 +24,8 @@ const REPORT_TYPES: SelectOption[] = [
   { value: 'ENROLLMENTS', label: 'Enrollments' },
   { value: 'SEAT_UTILIZATION', label: 'Seat Utilisation' },
   { value: 'CERT_EXPIRING', label: 'Expiring Certificates' },
+  { value: 'REFUND_RETURN_RATE', label: 'Refund / Return Rate' },
+  { value: 'INVENTORY_LEVELS', label: 'Inventory Levels' },
 ];
 
 @Component({
@@ -47,6 +49,29 @@ const REPORT_TYPES: SelectOption[] = [
 
           <form [formGroup]="form" (ngSubmit)="runReport()" class="flex flex-col gap-4">
             <app-select label="Report type" [options]="reportTypes" placeholder="Select…" formControlName="type" />
+
+            <app-select label="Window" [options]="windowOptions" formControlName="window" />
+
+            <div class="flex gap-2">
+              <div class="flex-1 flex flex-col gap-1">
+                <label class="text-xs font-medium">From</label>
+                <input formControlName="from" type="date"
+                  class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
+              </div>
+              <div class="flex-1 flex flex-col gap-1">
+                <label class="text-xs font-medium">To</label>
+                <input formControlName="to" type="date"
+                  class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
+              </div>
+            </div>
+
+            @if (form.get('type')?.value === 'CERT_EXPIRING') {
+              <div class="flex flex-col gap-1">
+                <label class="text-xs font-medium">Expiring within (days)</label>
+                <input formControlName="certExpiringDays" type="number" min="1" max="365"
+                  class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
+              </div>
+            }
 
             <app-select label="Format" [options]="formatOptions" formControlName="format" />
 
@@ -75,14 +100,14 @@ const REPORT_TYPES: SelectOption[] = [
                 @for (run of filteredRuns(); track run.id) {
                   <div class="flex items-center justify-between bg-[var(--color-surface-raised)] border border-[var(--color-border)] rounded-xl px-4 py-3">
                     <div>
-                      <p class="text-sm font-medium">{{ run.type }}</p>
-                      <p class="text-xs text-[var(--color-text-muted)]">{{ formatDate(run.queuedAt) }}</p>
+                      <p class="text-sm font-medium">{{ run.kind }}</p>
+                      <p class="text-xs text-[var(--color-text-muted)]">{{ formatDate(run.createdAt) }}</p>
                     </div>
                     <div class="flex items-center gap-3">
                       <span [class]="statusClass(run.status)" class="text-xs font-medium px-2 py-1 rounded-full">
                         {{ run.status }}
                       </span>
-                      @if (run.status === 'COMPLETED' && run.filePath) {
+                      @if (run.status === 'SUCCEEDED' && run.outputPath) {
                         <a [href]="downloadUrl(run.id)" target="_blank"
                           class="text-xs text-[var(--color-brand-600)] hover:underline min-h-0">
                           Download
@@ -113,11 +138,19 @@ export class ReportsCenterComponent implements OnInit {
     { value: 'PDF', label: 'PDF' },
     { value: 'JSON', label: 'JSON' },
   ];
+  windowOptions: SelectOption[] = [
+    { value: '', label: '—' },
+    { value: 'DAY', label: 'Day' },
+    { value: 'WEEK', label: 'Week' },
+    { value: 'MONTH', label: 'Month' },
+    { value: 'QUARTER', label: 'Quarter' },
+    { value: 'CUSTOM', label: 'Custom (from/to)' },
+  ];
   tabs: Tab[] = [
     { id: 'all', label: 'All' },
     { id: 'QUEUED', label: 'Queued' },
     { id: 'RUNNING', label: 'Running' },
-    { id: 'COMPLETED', label: 'Completed' },
+    { id: 'SUCCEEDED', label: 'Completed' },
     { id: 'FAILED', label: 'Failed' },
     { id: 'NEEDS_APPROVAL', label: 'Needs Approval' },
   ];
@@ -126,6 +159,10 @@ export class ReportsCenterComponent implements OnInit {
     this.form = this.fb.group({
       type: ['', Validators.required],
       format: ['CSV'],
+      window: [''],
+      from: [''],
+      to: [''],
+      certExpiringDays: [30],
     });
   }
 
@@ -141,8 +178,13 @@ export class ReportsCenterComponent implements OnInit {
   runReport(): void {
     if (this.form.invalid || this.submitting) return;
     this.submitting = true;
-    const { type, format } = this.form.value;
-    this.http.post<ReportRun>('/api/v1/reports', { type, format }).pipe(
+    const { type, format, window, from, to, certExpiringDays } = this.form.value;
+    const body: Record<string, unknown> = { kind: type, format };
+    if (window) body['window'] = window;
+    if (from) body['from'] = `${from}T00:00:00Z`;
+    if (to) body['to'] = `${to}T23:59:59Z`;
+    if (type === 'CERT_EXPIRING' && certExpiringDays) body['certExpiringDays'] = certExpiringDays;
+    this.http.post<ReportRun>('/api/v1/reports', body).pipe(
       catchError(err => {
         this.errorMessage = err.error?.message ?? 'Report request failed.';
         return of(null);
@@ -152,7 +194,7 @@ export class ReportsCenterComponent implements OnInit {
       if (run) {
         this.successMessage = run.status === 'NEEDS_APPROVAL'
           ? 'Report queued for approval.'
-          : 'Report queued successfully.';
+          : 'Report request submitted successfully.';
         this.runs = [run, ...this.runs];
       }
     });
@@ -177,7 +219,7 @@ export class ReportsCenterComponent implements OnInit {
     const map: Record<string, string> = {
       QUEUED: 'bg-sky-100 text-sky-800',
       RUNNING: 'bg-blue-100 text-blue-800',
-      COMPLETED: 'bg-green-100 text-green-800',
+      SUCCEEDED: 'bg-green-100 text-green-800',
       FAILED: 'bg-red-100 text-red-800',
       NEEDS_APPROVAL: 'bg-amber-100 text-amber-800',
       CANCELLED: 'bg-gray-100 text-gray-600',

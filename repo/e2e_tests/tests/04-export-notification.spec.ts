@@ -13,9 +13,9 @@ test.describe('Export notification', () => {
   });
 
   test('4a: admin triggers a data export', async ({ request }) => {
-    const res = await request.post(`${API}/api/v1/admin/exports`, {
+    const res = await request.post(`${API}/api/v1/reports`, {
       headers: { Authorization: `Bearer ${adminToken}` },
-      data: { type: 'SESSIONS', format: 'CSV', filters: {} },
+      data: { kind: 'ENROLLMENTS', format: 'CSV' },
     });
     expect([200, 202]).toContain(res.status());
   });
@@ -26,17 +26,17 @@ test.describe('Export notification', () => {
 
     // Poll the notification bell for up to 30 seconds for the export.ready notification
     await expect(async () => {
-      await page.getByRole('link', { name: /notifications|inbox/i }).click();
-      await expect(page.getByText(/export.*ready|export completed/i)).toBeVisible();
+      await page.getByRole('link', { name: /notifications/i }).click();
+      await expect(page.getByText(/export ready/i)).toBeVisible();
     }).toPass({ timeout: 30_000 });
   });
 
   test('4c: notification can be marked as read', async ({ page }) => {
     await loginViaUI(page, 'admin', 'Admin@123!');
-    await page.getByRole('link', { name: /notifications|inbox/i }).click();
+    await page.getByRole('link', { name: /notifications/i }).click();
 
-    const notification = page.getByText(/export.*ready|export completed/i).first();
-    await notification.click();
-    await expect(notification).not.toHaveClass(/unread/);
+    const notificationRow = page.locator('div').filter({ hasText: /export ready/i }).first();
+    await notificationRow.getByRole('button', { name: /mark read/i }).click();
+    await expect(notificationRow).toHaveClass(/opacity-60/);
   });
 });

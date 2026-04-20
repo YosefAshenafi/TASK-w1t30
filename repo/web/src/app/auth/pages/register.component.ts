@@ -59,6 +59,7 @@ function matchPasswords(g: AbstractControl) {
               <option value="">Select role…</option>
               <option value="STUDENT">Student</option>
               <option value="CORPORATE_MENTOR">Corporate Mentor</option>
+              <option value="FACULTY_MENTOR">Faculty Mentor</option>
             </select>
           </div>
 
@@ -145,9 +146,9 @@ export class RegisterComponent {
     this.errorMessage = '';
 
     const { username, displayName, role, orgCode, password } = this.form.value;
-    const body: Record<string, unknown> = { username, displayName, role, password };
+    const body: Record<string, unknown> = { username, displayName, requestedRole: role, password };
     if (role === 'CORPORATE_MENTOR' && orgCode) {
-      body['orgCode'] = orgCode;
+      body['organizationCode'] = orgCode;
     }
 
     this.http.post('/api/v1/auth/register', body).subscribe({

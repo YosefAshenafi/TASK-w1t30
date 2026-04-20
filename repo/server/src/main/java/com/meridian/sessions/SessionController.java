@@ -1,7 +1,9 @@
 package com.meridian.sessions;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.meridian.auth.repository.UserRepository;
 import com.meridian.common.idempotency.IdempotencyService;
+import com.meridian.common.security.AuthPrincipal;
 import com.meridian.common.web.PageResponse;
 import com.meridian.sessions.dto.*;
 import com.meridian.sessions.entity.SessionActivitySet;
@@ -33,6 +35,7 @@ public class SessionController {
     private final SessionActivitySetRepository setRepo;
     private final IdempotencyService idempotencyService;
     private final ObjectMapper objectMapper;
+    private final UserRepository userRepository;
 
     @PostMapping
     public ResponseEntity<TrainingSessionDto> create(@Valid @RequestBody CreateSessionRequest req,
@@ -43,7 +46,7 @@ public class SessionController {
 
         if (idemKey != null) {
             String hash = idempotencyService.hashBody(serialize(req));
-            Optional<TrainingSessionDto> cached = idempotencyService.check(idemKey, hash, TrainingSessionDto.class);
+            Optional<TrainingSessionDto> cached = idempotencyService.check(idemKey, userId, hash, TrainingSessionDto.class);
             if (cached.isPresent()) {
                 return ResponseEntity.status(HttpStatus.CREATED).body(cached.get());
             }
@@ -138,22 +141,43 @@ public class SessionController {
     @GetMapping
     public ResponseEntity<PageResponse<TrainingSessionDto>> list(
             @RequestParam(required = false) UUID studentId,
+            @RequestParam(required = false) UUID learnerId,
+            @RequestParam(required = false) String status,
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
             Authentication auth) {
 
-        String role = extractRole(auth);
+        AuthPrincipal principal = AuthPrincipal.of(auth);
+        String role = principal.role();
+        // Accept legacy `learnerId` alias used by the Angular client.
+        if (studentId == null && learnerId != null) {
+            studentId = learnerId;
+        }
         if ("STUDENT".equals(role)) {
-            studentId = UUID.fromString(auth.getName());
+            studentId = principal.userId();
         }
         Instant fromInstant = from != null ? Instant.parse(from) : null;
         Instant toInstant = to != null ? Instant.parse(to) : null;
         size = Math.min(size, 200);
 
-        Page<TrainingSession> result = sessionRepo.findFiltered(studentId, fromInstant, toInstant,
-                PageRequest.of(page, size, Sort.by("startedAt").descending()));
+        if ("CORPORATE_MENTOR".equals(role) && principal.organizationId() == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Corporate mentor has no organization scope");
+        }
+        String statusArg = status != null && !status.isBlank() ? status : null;
+        String studentIdStr = studentId != null ? studentId.toString() : null;
+        String fromStr = fromInstant != null ? fromInstant.toString() : null;
+        String toStr = toInstant != null ? toInstant.toString() : null;
+        PageRequest pageable = PageRequest.of(page, size, Sort.by("started_at").descending());
+        Page<TrainingSession> result;
+        if ("CORPORATE_MENTOR".equals(role)) {
+            result = sessionRepo.findFilteredByOrg(principal.organizationId().toString(), studentIdStr,
+                    statusArg, fromStr, toStr, pageable);
+        } else {
+            result = sessionRepo.findFiltered(studentIdStr, statusArg, fromStr, toStr, pageable);
+        }
         return ResponseEntity.ok(PageResponse.from(result.map(SessionMapper::toDto)));
     }
 
@@ -175,9 +199,22 @@ public class SessionController {
     private TrainingSession requireSession(UUID id, Authentication auth) {
         TrainingSession session = sessionRepo.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found"));
-        String role = extractRole(auth);
-        if ("STUDENT".equals(role) && !session.getStudentId().toString().equals(auth.getName())) {
+        AuthPrincipal principal = AuthPrincipal.of(auth);
+        String role = principal.role();
+        if ("STUDENT".equals(role) && !session.getStudentId().equals(principal.userId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
+        }
+        if ("CORPORATE_MENTOR".equals(role)) {
+            UUID orgId = principal.organizationId();
+            if (orgId == null) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
+            }
+            boolean inOrg = userRepository.findById(session.getStudentId())
+                    .map(u -> orgId.equals(u.getOrganizationId()))
+                    .orElse(false);
+            if (!inOrg) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
+            }
         }
         return session;
     }

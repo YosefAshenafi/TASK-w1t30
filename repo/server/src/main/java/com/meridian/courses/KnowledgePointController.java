@@ -2,6 +2,7 @@ package com.meridian.courses;
 
 import com.meridian.courses.dto.KnowledgePointDto;
 import com.meridian.courses.dto.KnowledgePointRequest;
+import com.meridian.courses.entity.Course;
 import com.meridian.courses.entity.KnowledgePoint;
 import com.meridian.courses.repository.CourseRepository;
 import com.meridian.courses.repository.KnowledgePointRepository;
@@ -27,8 +28,8 @@ public class KnowledgePointController {
     private final ClassificationPolicy classificationPolicy;
 
     @GetMapping
-    public ResponseEntity<List<KnowledgePointDto>> list(@PathVariable UUID courseId) {
-        ensureExists(courseId);
+    public ResponseEntity<List<KnowledgePointDto>> list(@PathVariable UUID courseId, Authentication auth) {
+        requireCanViewCourse(courseId, auth);
         return ResponseEntity.ok(repo.findByCourseId(courseId).stream()
                 .map(kp -> new KnowledgePointDto(kp.getId(), kp.getCourseId(), kp.getName(), kp.getDescription()))
                 .toList());
@@ -41,7 +42,7 @@ public class KnowledgePointController {
         if (!classificationPolicy.canModify(extractRole(auth))) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient role");
         }
-        ensureExists(courseId);
+        requireCanViewCourse(courseId, auth);
         KnowledgePoint kp = new KnowledgePoint();
         kp.setCourseId(courseId);
         kp.setName(req.name());
@@ -54,6 +55,15 @@ public class KnowledgePointController {
     private void ensureExists(UUID courseId) {
         if (!courseRepository.existsById(courseId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found");
+        }
+    }
+
+    private void requireCanViewCourse(UUID courseId, Authentication auth) {
+        Course course = courseRepository.findById(courseId)
+                .filter(c -> c.getDeletedAt() == null)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
+        if (!classificationPolicy.canView(course.getClassification(), extractRole(auth))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient classification");
         }
     }
 

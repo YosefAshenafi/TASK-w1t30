@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, map, Observable } from 'rxjs';
 import { UserProfile, Role } from '../models/user.model';
-import { clearTokens, storeTokens } from '../http/auth.interceptor';
+import { clearTokens, getRefreshToken, storeTokens } from '../http/auth.interceptor';
 
 @Injectable({ providedIn: 'root' })
 export class AuthStore {
@@ -28,6 +28,10 @@ export class AuthStore {
 
   organizationId(): string | null {
     return this._profile$.getValue()?.organizationId ?? null;
+  }
+
+  refreshToken(): string | null {
+    return getRefreshToken();
   }
 
   setProfile(profile: UserProfile): void {

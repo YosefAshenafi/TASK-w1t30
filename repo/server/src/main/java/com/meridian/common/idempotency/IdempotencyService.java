@@ -37,9 +37,18 @@ public class IdempotencyService {
     }
 
     public <T> Optional<T> check(String idemKey, String requestHash, Class<T> responseType) {
+        return check(idemKey, null, requestHash, responseType);
+    }
+
+    public <T> Optional<T> check(String idemKey, UUID userId, String requestHash, Class<T> responseType) {
         if (idemKey == null) return Optional.empty();
 
         return repository.findById(idemKey).map(cached -> {
+            // Binding the lookup to the caller's userId prevents cross-user
+            // replay or collision of an idempotency key taken from another session.
+            if (userId != null && cached.getUserId() != null && !cached.getUserId().equals(userId)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "IDEMPOTENCY_MISMATCH");
+            }
             if (!cached.getRequestHash().equals(requestHash)) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "IDEMPOTENCY_MISMATCH");
             }

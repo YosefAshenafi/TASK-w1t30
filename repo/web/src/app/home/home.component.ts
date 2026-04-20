@@ -140,19 +140,19 @@ export class HomeComponent implements OnInit {
         catchError(() => of({ content: [] }))
       ).subscribe(r => { this.stats.activeSessions = r.content.length; });
 
-      this.http.get<{ totalElements: number }>(`/api/v1/sessions?learnerId=${userId}&status=COMPLETED&size=1`).pipe(
-        catchError(() => of({ totalElements: 0 }))
-      ).subscribe(r => { this.stats.completedSessions = r.totalElements; });
+      this.http.get<{ total: number }>(`/api/v1/sessions?learnerId=${userId}&status=COMPLETED&size=1`).pipe(
+        catchError(() => of({ total: 0 }))
+      ).subscribe(r => { this.stats.completedSessions = r.total; });
     }
 
     if (this.role === 'ADMIN') {
-      this.http.get<{ totalElements: number }>('/api/v1/admin/approvals?status=PENDING&size=1').pipe(
-        catchError(() => of({ totalElements: 0 }))
-      ).subscribe(r => { this.stats.pendingApprovals = r.totalElements; });
+      this.http.get<{ total: number }>('/api/v1/admin/approvals?status=PENDING&size=1').pipe(
+        catchError(() => of({ total: 0 }))
+      ).subscribe(r => { this.stats.pendingApprovals = r.total; });
 
-      this.http.get<{ totalElements: number }>('/api/v1/admin/anomalies?resolved=false&size=1').pipe(
-        catchError(() => of({ totalElements: 0 }))
-      ).subscribe(r => { this.stats.unresolvedAnomalies = r.totalElements; });
+      this.http.get<{ total: number }>('/api/v1/admin/anomalies?resolved=false&size=1').pipe(
+        catchError(() => of({ total: 0 }))
+      ).subscribe(r => { this.stats.unresolvedAnomalies = r.total; });
     }
 
     this.loading = false;

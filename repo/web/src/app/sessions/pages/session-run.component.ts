@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { interval, Subscription } from 'rxjs';
@@ -10,10 +11,15 @@ import { ButtonComponent } from '../../shared/ui/button.component';
 import { SessionRecord, SessionSetRecord } from '../../core/db/dexie';
 import { catchError, of } from 'rxjs';
 
+interface ActivityOption {
+  id: string;
+  name: string;
+}
+
 @Component({
   selector: 'app-session-run',
   standalone: true,
-  imports: [CommonModule, RouterLink, BannerComponent, ButtonComponent],
+  imports: [CommonModule, FormsModule, RouterLink, BannerComponent, ButtonComponent],
   template: `
     <div class="p-6 max-w-2xl mx-auto">
       @if (!(network.online$ | async)) {
@@ -41,6 +47,21 @@ import { catchError, of } from 'rxjs';
           </div>
         }
 
+        <div class="mb-4 flex flex-col gap-2">
+          <label class="text-sm font-medium">Activity</label>
+          <select
+            [(ngModel)]="selectedActivityId"
+            class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]">
+            <option value="">Select activity…</option>
+            @for (act of activities; track act.id) {
+              <option [value]="act.id">{{ act.name }}</option>
+            }
+          </select>
+          @if (activityError) {
+            <p class="text-xs text-red-600">Select an activity before adding a set.</p>
+          }
+        </div>
+
         <!-- Activity sets -->
         <div class="flex flex-col gap-3 mb-6">
           @for (set of sets; track set.id) {
@@ -50,7 +71,7 @@ import { catchError, of } from 'rxjs';
               <div>
                 <p class="font-medium text-sm">Set {{ set.setIndex + 1 }}</p>
                 <p class="text-xs text-[var(--color-text-muted)] mt-0.5">
-                  Rest: {{ set.restSeconds }}s
+                  {{ activityName(set.activityId) }} · Rest: {{ set.restSeconds }}s
                   @if (set.completedAt) { · ✓ {{ formatTime(set.completedAt) }} }
                 </p>
               </div>
@@ -65,7 +86,8 @@ import { catchError, of } from 'rxjs';
           }
           <button
             (click)="addSet()"
-            class="border-2 border-dashed border-[var(--color-border)] rounded-xl px-5 py-4 text-sm text-[var(--color-text-muted)] hover:border-[var(--color-brand-500)] hover:text-[var(--color-brand-600)] transition-colors min-h-0">
+            [disabled]="!selectedActivityId"
+            class="border-2 border-dashed border-[var(--color-border)] rounded-xl px-5 py-4 text-sm text-[var(--color-text-muted)] hover:border-[var(--color-brand-500)] hover:text-[var(--color-brand-600)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-0">
             + Add set
           </button>
         </div>
@@ -92,6 +114,9 @@ import { catchError, of } from 'rxjs';
 export class SessionRunComponent implements OnInit, OnDestroy {
   session: SessionRecord | null = null;
   sets: SessionSetRecord[] = [];
+  activities: ActivityOption[] = [];
+  selectedActivityId = '';
+  activityError = false;
   elapsedSeconds = 0;
   restRemaining = 0;
   resting = false;
@@ -126,7 +151,6 @@ export class SessionRunComponent implements OnInit, OnDestroy {
         this.session = s;
         await this.sessionStore.upsertSession(s);
       } else {
-        // Try from cache
         const cached = await import('../../core/db/dexie').then(m => m.db.sessions.get(id));
         this.session = cached ?? null;
       }
@@ -137,8 +161,25 @@ export class SessionRunComponent implements OnInit, OnDestroy {
             (Date.now() - new Date(this.session.startedAt).getTime()) / 1000
           );
         }
+        this.loadActivities(this.session.courseId);
       }
     });
+  }
+
+  private loadActivities(courseId: string): void {
+    this.http.get<ActivityOption[]>(`/api/v1/courses/${courseId}/activities`).pipe(
+      catchError(() => of([] as ActivityOption[]))
+    ).subscribe(list => {
+      this.activities = list;
+      if (!this.selectedActivityId && list.length > 0) {
+        this.selectedActivityId = list[0].id;
+      }
+    });
+  }
+
+  activityName(activityId: string): string {
+    if (!activityId) return 'Unassigned activity';
+    return this.activities.find(a => a.id === activityId)?.name ?? activityId.slice(0, 8);
   }
 
   async completeSet(set: SessionSetRecord): Promise<void> {
@@ -152,13 +193,18 @@ export class SessionRunComponent implements OnInit, OnDestroy {
 
   async addSet(): Promise<void> {
     if (!this.session) return;
+    if (!this.selectedActivityId) {
+      this.activityError = true;
+      return;
+    }
+    this.activityError = false;
     const setId = crypto.randomUUID();
     const now = new Date().toISOString();
     const newSet: SessionSetRecord = {
       id: setId,
       sessionId: this.session.id,
-      activityId: '',
-      setIndex: this.sets.length,
+      activityId: this.selectedActivityId,
+      setIndex: this.sets.length + 1,
       restSeconds: this.session.restSecondsDefault,
       completedAt: null,
       notes: null,

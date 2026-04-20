@@ -1,11 +1,14 @@
 package com.meridian.security.audit;
 
+import com.meridian.common.security.AesAttributeConverter;
+import com.meridian.common.web.RequestIdFilter;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import org.slf4j.MDC;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -39,8 +42,8 @@ public class AuditEvent {
     @Column(name = "request_id")
     private String requestId;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "jsonb", nullable = false)
+    @Convert(converter = AesAttributeConverter.class)
+    @Column(nullable = false, columnDefinition = "text")
     private String details = "{}";
 
     @Column(name = "occurred_at", nullable = false, updatable = false)
@@ -53,6 +56,12 @@ public class AuditEvent {
         e.targetType = targetType;
         e.targetId = targetId;
         e.details = details;
+        // Pick up the current request id (set by RequestIdFilter) so the
+        // audit trail can be correlated with application logs.
+        String rid = MDC.get(RequestIdFilter.REQUEST_ID_HEADER);
+        if (rid != null && !rid.isBlank()) {
+            e.requestId = rid;
+        }
         return e;
     }
 }

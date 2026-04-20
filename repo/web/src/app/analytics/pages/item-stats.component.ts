@@ -5,7 +5,16 @@ import { HttpClient } from '@angular/common/http';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { catchError, of } from 'rxjs';
 
-interface ItemStat { itemId: string; attempts: number; correctRate: number; avgTimeSeconds: number; }
+interface ItemStatItem {
+  itemId: string;
+  difficulty: number;
+  discrimination: number;
+  attempts: number;
+}
+
+interface ItemStatResponse {
+  items: ItemStatItem[];
+}
 
 @Component({
   selector: 'app-item-stats',
@@ -17,6 +26,16 @@ interface ItemStat { itemId: string; attempts: number; correctRate: number; avgT
 
       <form [formGroup]="filters" class="flex flex-wrap gap-3 mb-6">
         <input formControlName="courseId" type="text" placeholder="Course ID (optional)"
+          class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
+        <input formControlName="courseVersion" type="text" placeholder="Course version"
+          class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
+        <input formControlName="locationId" type="text" placeholder="Location ID"
+          class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
+        <input formControlName="instructorId" type="text" placeholder="Instructor ID"
+          class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
+        <input formControlName="from" type="date"
+          class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
+        <input formControlName="to" type="date"
           class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
         <button type="button" (click)="load()"
           class="bg-[var(--color-brand-600)] text-white rounded-lg px-4 py-2 text-sm min-h-[48px]">
@@ -37,8 +56,8 @@ interface ItemStat { itemId: string; attempts: number; correctRate: number; avgT
               <tr>
                 <th class="px-4 py-3 text-left font-medium text-[var(--color-text-muted)]">Item ID</th>
                 <th class="px-4 py-3 text-right font-medium text-[var(--color-text-muted)]">Attempts</th>
-                <th class="px-4 py-3 text-right font-medium text-[var(--color-text-muted)]">Correct Rate</th>
-                <th class="px-4 py-3 text-right font-medium text-[var(--color-text-muted)]">Avg Time (s)</th>
+                <th class="px-4 py-3 text-right font-medium text-[var(--color-text-muted)]">Difficulty</th>
+                <th class="px-4 py-3 text-right font-medium text-[var(--color-text-muted)]">Discrimination</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-[var(--color-border)]">
@@ -47,11 +66,11 @@ interface ItemStat { itemId: string; attempts: number; correctRate: number; avgT
                   <td class="px-4 py-3 font-mono text-xs">{{ row.itemId }}</td>
                   <td class="px-4 py-3 text-right">{{ row.attempts }}</td>
                   <td class="px-4 py-3 text-right font-medium"
-                    [class.text-green-700]="row.correctRate >= 0.7"
-                    [class.text-red-700]="row.correctRate < 0.4">
-                    {{ (row.correctRate * 100).toFixed(1) }}%
+                    [class.text-red-700]="row.difficulty >= 0.7"
+                    [class.text-green-700]="row.difficulty < 0.4">
+                    {{ row.difficulty.toFixed(2) }}
                   </td>
-                  <td class="px-4 py-3 text-right">{{ row.avgTimeSeconds.toFixed(0) }}</td>
+                  <td class="px-4 py-3 text-right">{{ row.discrimination.toFixed(2) }}</td>
                 </tr>
               }
             </tbody>
@@ -63,21 +82,31 @@ interface ItemStat { itemId: string; attempts: number; correctRate: number; avgT
 })
 export class ItemStatsComponent implements OnInit {
   filters: FormGroup;
-  data: ItemStat[] = [];
+  data: ItemStatItem[] = [];
   loading = false;
 
   constructor(private fb: FormBuilder, private http: HttpClient) {
-    this.filters = this.fb.group({ courseId: [''] });
+    this.filters = this.fb.group({
+      courseId: [''], courseVersion: [''], locationId: [''],
+      instructorId: [''], from: [''], to: [''],
+    });
   }
 
   ngOnInit(): void { this.load(); }
 
   load(): void {
     this.loading = true;
-    const { courseId } = this.filters.value;
-    const params = courseId ? `?courseId=${courseId}` : '';
-    this.http.get<ItemStat[]>(`/api/v1/analytics/item-stats${params}`).pipe(
-      catchError(() => of([]))
-    ).subscribe(d => { this.data = d; this.loading = false; });
+    const v = this.filters.value;
+    const parts: string[] = [];
+    if (v.courseId) parts.push(`courseId=${v.courseId}`);
+    if (v.courseVersion) parts.push(`courseVersion=${encodeURIComponent(v.courseVersion)}`);
+    if (v.locationId) parts.push(`locationId=${v.locationId}`);
+    if (v.instructorId) parts.push(`instructorId=${v.instructorId}`);
+    if (v.from) parts.push(`from=${new Date(v.from).toISOString()}`);
+    if (v.to) parts.push(`to=${new Date(v.to).toISOString()}`);
+    const qs = parts.length ? `?${parts.join('&')}` : '';
+    this.http.get<ItemStatResponse>(`/api/v1/analytics/item-stats${qs}`).pipe(
+      catchError(() => of({ items: [] as ItemStatItem[] }))
+    ).subscribe(d => { this.data = d.items ?? []; this.loading = false; });
   }
 }

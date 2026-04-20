@@ -1,7 +1,9 @@
 package com.meridian.backups;
 
+import com.meridian.backups.entity.BackupPolicy;
 import com.meridian.backups.entity.BackupRun;
 import com.meridian.backups.entity.RecoveryDrill;
+import com.meridian.backups.repository.BackupPolicyRepository;
 import com.meridian.backups.repository.BackupRunRepository;
 import com.meridian.backups.repository.RecoveryDrillRepository;
 import com.meridian.common.web.PageResponse;
@@ -18,7 +20,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/api/v1/admin/backups")
@@ -28,15 +29,9 @@ public class BackupController {
 
     private final BackupRunRepository backupRunRepository;
     private final RecoveryDrillRepository recoveryDrillRepository;
+    private final BackupPolicyRepository backupPolicyRepository;
     private final BackupRunner backupRunner;
     private final RecoveryDrillRunner recoveryDrillRunner;
-
-    // In-memory policy (could be persisted; simple Map for now)
-    private static final Map<String, Object> POLICY = new ConcurrentHashMap<>(Map.of(
-            "retentionDays", 30,
-            "scheduleEnabled", true,
-            "scheduleCron", "0 0 2 * * *"
-    ));
 
     @GetMapping
     public ResponseEntity<PageResponse<BackupRun>> list(
@@ -60,18 +55,51 @@ public class BackupController {
     }
 
     @GetMapping("/policy")
-    public ResponseEntity<Map<String, Object>> getPolicy() {
-        return ResponseEntity.ok(POLICY);
+    public ResponseEntity<BackupPolicy> getPolicy() {
+        BackupPolicy policy = backupPolicyRepository.findAll().stream().findFirst()
+                .orElseGet(() -> {
+                    BackupPolicy p = new BackupPolicy();
+                    return backupPolicyRepository.save(p);
+                });
+        return ResponseEntity.ok(policy);
     }
 
     @PutMapping("/policy")
-    public ResponseEntity<Map<String, Object>> updatePolicy(@RequestBody Map<String, Object> updates) {
-        updates.forEach((k, v) -> {
-            if (POLICY.containsKey(k)) {
-                POLICY.put(k, v);
+    public ResponseEntity<BackupPolicy> updatePolicy(@RequestBody Map<String, Object> updates) {
+        BackupPolicy policy = backupPolicyRepository.findAll().stream().findFirst()
+                .orElseGet(BackupPolicy::new);
+        if (updates.containsKey("retentionDays")) {
+            policy.setRetentionDays(((Number) updates.get("retentionDays")).intValue());
+        }
+        if (updates.containsKey("scheduleEnabled")) {
+            policy.setScheduleEnabled((Boolean) updates.get("scheduleEnabled"));
+        }
+        if (updates.containsKey("scheduleCron")) {
+            policy.setScheduleCron((String) updates.get("scheduleCron"));
+        }
+        if (updates.containsKey("backupPath")) {
+            Object rawPath = updates.get("backupPath");
+            String backupPath = rawPath == null ? null : rawPath.toString().trim();
+            if (backupPath != null && !backupPath.isEmpty()) {
+                validateBackupPath(backupPath);
+                policy.setBackupPath(backupPath);
+            } else {
+                policy.setBackupPath(null);
             }
-        });
-        return ResponseEntity.ok(POLICY);
+        }
+        return ResponseEntity.ok(backupPolicyRepository.save(policy));
+    }
+
+    private void validateBackupPath(String path) {
+        if (path.length() > 500) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "backupPath must be at most 500 characters");
+        }
+        if (path.contains("..") || path.contains("\0")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "backupPath contains unsafe characters");
+        }
+        if (!path.startsWith("/")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "backupPath must be an absolute path");
+        }
     }
 
     @PostMapping("/recovery-drill")

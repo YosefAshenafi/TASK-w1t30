@@ -22,6 +22,13 @@ interface RecycleBinEntry {
     <div class="p-6 max-w-5xl mx-auto">
       <h1 class="text-xl font-bold mb-4">Recycle Bin</h1>
 
+      @if (retentionDays !== null) {
+        <p class="text-xs text-[var(--color-text-muted)] mb-3">
+          Items in the recycle bin are purged automatically
+          {{ retentionDays > 0 ? 'after ' + retentionDays + ' days' : '(purge disabled)' }}.
+        </p>
+      }
+
       @if (message) {
         <app-banner [message]="message" severity="success" [dismissible]="true" (dismissed)="message=''" />
       }
@@ -60,6 +67,7 @@ export class AdminRecycleBinComponent implements OnInit {
   loading = false;
   message = '';
   activeTab = 'courses';
+  retentionDays: number | null = null;
   tabs: Tab[] = [
     { id: 'courses', label: 'Courses' },
     { id: 'users', label: 'Users' },
@@ -67,7 +75,12 @@ export class AdminRecycleBinComponent implements OnInit {
 
   constructor(private http: HttpClient) {}
 
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void {
+    this.http.get<{ retentionDays: number }>('/api/v1/admin/recycle-bin/policy').pipe(
+      catchError(() => of(null))
+    ).subscribe(p => { this.retentionDays = p?.retentionDays ?? null; });
+    this.load();
+  }
 
   setTab(id: string): void { this.activeTab = id; this.load(); }
 

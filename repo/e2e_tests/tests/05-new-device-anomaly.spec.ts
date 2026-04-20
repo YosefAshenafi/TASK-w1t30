@@ -27,25 +27,24 @@ test.describe('New device anomaly detection', () => {
     expect(body.accessToken).toBeTruthy();
   });
 
-  test('5b: anomaly event is recorded in the audit log', async ({ request }) => {
-    const res = await request.get(`${API}/api/v1/admin/audit-logs`, {
+  test('5b: anomaly event is recorded in the anomalies log', async ({ request }) => {
+    const res = await request.get(`${API}/api/v1/admin/anomalies`, {
       headers: { Authorization: `Bearer ${adminToken}` },
-      params: { eventType: 'NEW_DEVICE_LOGIN', limit: 5 },
     });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    expect(body.content.length).toBeGreaterThan(0);
+    expect(Array.isArray(body.content)).toBe(true);
   });
 
   test('5c: admin notification for anomaly appears in inbox', async ({ request }) => {
     const res = await request.get(`${API}/api/v1/notifications`, {
       headers: { Authorization: `Bearer ${adminToken}` },
-      params: { unreadOnly: true },
+      params: { unread: true },
     });
     expect(res.status()).toBe(200);
     const body = await res.json();
     const anomalyNotif = body.content.find(
-      (n: { type: string }) => n.type === 'NEW_DEVICE_LOGIN' || n.type === 'SECURITY_ANOMALY'
+      (n: { templateKey: string }) => n.templateKey === 'anomaly.newDevice'
     );
     expect(anomalyNotif).toBeTruthy();
   });

@@ -6,7 +6,17 @@ import { AuthStore } from '../../core/stores/auth.store';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { catchError, of } from 'rxjs';
 
-interface WrongAnswer { itemId: string; question: string; givenAnswer: string; correctAnswer: string; count: number; }
+interface WrongAnswerItem {
+  itemId: string;
+  stemPreview: string;
+  wrongChoiceId: string;
+  count: number;
+  pct: number;
+}
+
+interface WrongAnswerResponse {
+  items: WrongAnswerItem[];
+}
 
 @Component({
   selector: 'app-wrong-answers',
@@ -23,6 +33,16 @@ interface WrongAnswer { itemId: string; question: string; givenAnswer: string; c
         }
         <input formControlName="courseId" type="text" placeholder="Course ID"
           class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
+        <input formControlName="courseVersion" type="text" placeholder="Course version"
+          class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
+        <input formControlName="locationId" type="text" placeholder="Location ID"
+          class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
+        <input formControlName="instructorId" type="text" placeholder="Instructor ID"
+          class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
+        <input formControlName="from" type="date"
+          class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
+        <input formControlName="to" type="date"
+          class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
         <button type="button" (click)="load()"
           class="bg-[var(--color-brand-600)] text-white rounded-lg px-4 py-2 text-sm min-h-[48px]">
           Apply
@@ -37,14 +57,14 @@ interface WrongAnswer { itemId: string; question: string; givenAnswer: string; c
         <p class="text-[var(--color-text-muted)] text-sm">No wrong answers found.</p>
       } @else {
         <div class="flex flex-col gap-3">
-          @for (row of data; track row.itemId) {
+          @for (row of data; track row.itemId + '_' + row.wrongChoiceId) {
             <div class="bg-[var(--color-surface-raised)] border border-[var(--color-border)] rounded-xl px-5 py-4">
               <div class="flex items-start justify-between gap-4">
                 <div class="flex-1">
-                  <p class="text-sm font-medium mb-2">{{ row.question }}</p>
+                  <p class="text-sm font-medium mb-2">{{ row.stemPreview }}</p>
                   <div class="flex gap-6 text-xs">
-                    <span class="text-red-700"><span class="font-medium">Given:</span> {{ row.givenAnswer }}</span>
-                    <span class="text-green-700"><span class="font-medium">Correct:</span> {{ row.correctAnswer }}</span>
+                    <span class="text-red-700"><span class="font-medium">Wrong choice:</span> {{ row.wrongChoiceId }}</span>
+                    <span class="text-[var(--color-text-muted)]"><span class="font-medium">Share:</span> {{ (row.pct * 100).toFixed(1) }}%</span>
                   </div>
                 </div>
                 <span class="text-2xl font-bold text-[var(--color-text-muted)] flex-shrink-0">{{ row.count }}×</span>
@@ -58,12 +78,15 @@ interface WrongAnswer { itemId: string; question: string; givenAnswer: string; c
 })
 export class WrongAnswersComponent implements OnInit {
   filters: FormGroup;
-  data: WrongAnswer[] = [];
+  data: WrongAnswerItem[] = [];
   loading = false;
   canFilter = false;
 
   constructor(private fb: FormBuilder, private http: HttpClient, private authStore: AuthStore) {
-    this.filters = this.fb.group({ learnerId: [''], courseId: [''] });
+    this.filters = this.fb.group({
+      learnerId: [''], courseId: [''], courseVersion: [''],
+      locationId: [''], instructorId: [''], from: [''], to: [''],
+    });
   }
 
   ngOnInit(): void {
@@ -73,18 +96,23 @@ export class WrongAnswersComponent implements OnInit {
 
   load(): void {
     this.loading = true;
-    const { learnerId, courseId } = this.filters.value;
+    const v = this.filters.value;
     const role = this.authStore.userRole();
-    let params = '';
+    const parts: string[] = [];
     if (role === 'STUDENT') {
-      params += `learnerId=${this.authStore.userId()}`;
-    } else if (learnerId) {
-      params += `learnerId=${learnerId}`;
+      parts.push(`learnerId=${this.authStore.userId()}`);
+    } else if (v.learnerId) {
+      parts.push(`learnerId=${v.learnerId}`);
     }
-    if (courseId) params += `${params ? '&' : ''}courseId=${courseId}`;
+    if (v.courseId) parts.push(`courseId=${v.courseId}`);
+    if (v.courseVersion) parts.push(`courseVersion=${encodeURIComponent(v.courseVersion)}`);
+    if (v.locationId) parts.push(`locationId=${v.locationId}`);
+    if (v.instructorId) parts.push(`instructorId=${v.instructorId}`);
+    if (v.from) parts.push(`from=${new Date(v.from).toISOString()}`);
+    if (v.to) parts.push(`to=${new Date(v.to).toISOString()}`);
 
-    this.http.get<WrongAnswer[]>(`/api/v1/analytics/wrong-answers?${params}`).pipe(
-      catchError(() => of([]))
-    ).subscribe(d => { this.data = d; this.loading = false; });
+    this.http.get<WrongAnswerResponse>(`/api/v1/analytics/wrong-answers?${parts.join('&')}`).pipe(
+      catchError(() => of({ items: [] as WrongAnswerItem[] }))
+    ).subscribe(d => { this.data = d.items ?? []; this.loading = false; });
   }
 }

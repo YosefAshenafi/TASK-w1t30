@@ -19,6 +19,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -45,10 +46,12 @@ public class CourseController {
 
         size = Math.min(size, 200);
         String role = extractRole(auth);
-        String classificationFilter = classificationPolicy.canView("CONFIDENTIAL", role) ? null : "PUBLIC";
+        Collection<String> allowedClassifications = classificationPolicy.canView("CONFIDENTIAL", role)
+                ? null
+                : List.of("PUBLIC", "INTERNAL");
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        Page<Course> result = courseRepository.findFiltered(version, location, instructor, classificationFilter, q, pageable);
+        Page<Course> result = courseRepository.findFiltered(version, location, instructor, allowedClassifications, q, pageable);
 
         List<CourseDto> items = result.getContent().stream()
                 .filter(c -> classificationPolicy.canView(c.getClassification(), role))
@@ -77,9 +80,25 @@ public class CourseController {
         return ResponseEntity.ok(toDto(courseRepository.save(course)));
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> softDelete(@PathVariable UUID id, Authentication auth) {
+        requireCanModify(auth);
+        Course course = courseRepository.findById(id)
+                .filter(c -> c.getDeletedAt() == null)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
+        course.setDeletedAt(java.time.Instant.now());
+        try {
+            course.setDeletedBy(UUID.fromString(auth.getName()));
+        } catch (IllegalArgumentException ignored) {
+            // auth.getName() was not a UUID; leave deletedBy unset
+        }
+        courseRepository.save(course);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/{id}/cohorts")
-    public ResponseEntity<List<CohortDto>> cohorts(@PathVariable UUID id) {
-        ensureCourseExists(id);
+    public ResponseEntity<List<CohortDto>> cohorts(@PathVariable UUID id, Authentication auth) {
+        requireCanViewCourse(id, auth);
         return ResponseEntity.ok(cohortRepository.findByCourseId(id).stream()
                 .map(c -> new CohortDto(c.getId(), c.getCourseId(), c.getName(),
                         c.getTotalSeats(), c.getStartsAt(), c.getEndsAt()))
@@ -90,9 +109,10 @@ public class CourseController {
     public ResponseEntity<PageResponse<AssessmentItemDto>> items(
             @PathVariable UUID id,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(defaultValue = "50") int size,
+            Authentication auth) {
         size = Math.min(size, 200);
-        ensureCourseExists(id);
+        requireCanViewCourse(id, auth);
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").ascending());
         Page<AssessmentItem> result = assessmentItemRepository.findByCourseIdAndDeletedAtIsNull(id, pageable);
         List<AssessmentItemDto> items = result.getContent().stream().map(this::toItemDto).toList();
@@ -102,6 +122,15 @@ public class CourseController {
     private void ensureCourseExists(UUID id) {
         if (!courseRepository.existsById(id)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found");
+        }
+    }
+
+    private void requireCanViewCourse(UUID id, Authentication auth) {
+        Course course = courseRepository.findById(id)
+                .filter(c -> c.getDeletedAt() == null)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
+        if (!classificationPolicy.canView(course.getClassification(), extractRole(auth))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient classification");
         }
     }
 

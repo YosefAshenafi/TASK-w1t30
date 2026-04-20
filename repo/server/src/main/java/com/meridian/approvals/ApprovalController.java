@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/approvals")
+@RequestMapping("/api/v1/admin/approvals")
 @PreAuthorize("hasRole('ADMIN')")
 @RequiredArgsConstructor
 public class ApprovalController {

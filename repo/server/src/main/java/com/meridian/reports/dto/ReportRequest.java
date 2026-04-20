@@ -15,5 +15,7 @@ public record ReportRequest(
         Integer certExpiringDays,
         @NotBlank @Pattern(regexp = "CSV|PDF|JSON")
         String format,
-        UUID organizationId
+        UUID organizationId,
+        @Pattern(regexp = "INTERNAL|CONFIDENTIAL|RESTRICTED")
+        String classification
 ) {}

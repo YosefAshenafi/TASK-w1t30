@@ -1,7 +1,8 @@
 package com.meridian.analytics;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -10,7 +11,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class AnalyticsService {
 
-    private final JdbcTemplate jdbc;
+    private final NamedParameterJdbcTemplate jdbc;
 
     public MasteryTrendSeries masteryTrends(AnalyticsFilter f) {
         String scope = f.learnerId() != null ? "LEARNER" :
@@ -23,18 +24,26 @@ public class AnalyticsService {
                 FROM assessment_attempts aa
                 JOIN assessment_items ai ON ai.id = aa.item_id
                 WHERE aa.attempted_at IS NOT NULL
-                  AND (:from::timestamptz IS NULL OR aa.attempted_at >= :from::timestamptz)
-                  AND (:to::timestamptz IS NULL OR aa.attempted_at <= :to::timestamptz)
-                  AND (:courseId::uuid IS NULL OR ai.course_id = :courseId::uuid)
-                  AND (:learnerId::uuid IS NULL OR aa.student_id = :learnerId::uuid)
+                  AND (CAST(:orgId AS uuid) IS NULL
+                       OR EXISTS(SELECT 1 FROM users ou WHERE ou.id = aa.student_id AND ou.organization_id = CAST(:orgId AS uuid)))
+                  AND (CAST(:fromTs AS timestamptz) IS NULL OR aa.attempted_at >= CAST(:fromTs AS timestamptz))
+                  AND (CAST(:toTs AS timestamptz) IS NULL OR aa.attempted_at <= CAST(:toTs AS timestamptz))
+                  AND (CAST(:courseId AS uuid) IS NULL OR ai.course_id = CAST(:courseId AS uuid))
+                  AND (CAST(:learnerId AS uuid) IS NULL OR aa.student_id = CAST(:learnerId AS uuid))
+                  AND (CAST(:cohortId AS uuid) IS NULL
+                       OR EXISTS(SELECT 1 FROM enrollments enr WHERE enr.student_id = aa.student_id AND enr.cohort_id = CAST(:cohortId AS uuid)))
+                  AND (CAST(:locationId AS uuid) IS NULL
+                       OR EXISTS(SELECT 1 FROM courses cloc WHERE cloc.id = ai.course_id AND cloc.location_id = CAST(:locationId AS uuid)))
+                  AND (CAST(:instructorId AS uuid) IS NULL
+                       OR EXISTS(SELECT 1 FROM cohorts co2 JOIN enrollments enr2 ON enr2.cohort_id = co2.id
+                                 WHERE enr2.student_id = aa.student_id AND co2.instructor_id = CAST(:instructorId AS uuid)))
+                  AND (:courseVersion IS NULL
+                       OR EXISTS(SELECT 1 FROM courses cv WHERE cv.id = ai.course_id AND cv.version = :courseVersion))
                 GROUP BY 1
                 ORDER BY 1
-                """.replace(":from::timestamptz", f.from() != null ? "'" + f.from() + "'" : "NULL")
-                   .replace(":to::timestamptz", f.to() != null ? "'" + f.to() + "'" : "NULL")
-                   .replace(":courseId::uuid", f.courseId() != null ? "'" + f.courseId() + "'" : "NULL")
-                   .replace(":learnerId::uuid", f.learnerId() != null ? "'" + f.learnerId() + "'" : "NULL");
+                """;
 
-        List<MasteryTrendSeries.Point> points = jdbc.query(sql, (rs, i) -> new MasteryTrendSeries.Point(
+        List<MasteryTrendSeries.Point> points = jdbc.query(sql, buildParams(f), (rs, i) -> new MasteryTrendSeries.Point(
                 rs.getTimestamp("day").toInstant(),
                 rs.getDouble("mastery") * 100.0,
                 rs.getInt("attempts")));
@@ -52,15 +61,27 @@ public class AnalyticsService {
                 FROM assessment_attempts aa
                 JOIN assessment_items ai ON ai.id = aa.item_id
                 WHERE aa.is_correct = false
-                  AND (:courseId::uuid IS NULL OR ai.course_id = :courseId::uuid)
-                  AND (:learnerId::uuid IS NULL OR aa.student_id = :learnerId::uuid)
+                  AND (CAST(:orgId AS uuid) IS NULL
+                       OR EXISTS(SELECT 1 FROM users ou WHERE ou.id = aa.student_id AND ou.organization_id = CAST(:orgId AS uuid)))
+                  AND (CAST(:fromTs AS timestamptz) IS NULL OR aa.attempted_at >= CAST(:fromTs AS timestamptz))
+                  AND (CAST(:toTs AS timestamptz) IS NULL OR aa.attempted_at <= CAST(:toTs AS timestamptz))
+                  AND (CAST(:courseId AS uuid) IS NULL OR ai.course_id = CAST(:courseId AS uuid))
+                  AND (CAST(:learnerId AS uuid) IS NULL OR aa.student_id = CAST(:learnerId AS uuid))
+                  AND (CAST(:cohortId AS uuid) IS NULL
+                       OR EXISTS(SELECT 1 FROM enrollments enr WHERE enr.student_id = aa.student_id AND enr.cohort_id = CAST(:cohortId AS uuid)))
+                  AND (CAST(:locationId AS uuid) IS NULL
+                       OR EXISTS(SELECT 1 FROM courses cloc WHERE cloc.id = ai.course_id AND cloc.location_id = CAST(:locationId AS uuid)))
+                  AND (CAST(:instructorId AS uuid) IS NULL
+                       OR EXISTS(SELECT 1 FROM cohorts co2 JOIN enrollments enr2 ON enr2.cohort_id = co2.id
+                                 WHERE enr2.student_id = aa.student_id AND co2.instructor_id = CAST(:instructorId AS uuid)))
+                  AND (:courseVersion IS NULL
+                       OR EXISTS(SELECT 1 FROM courses cv WHERE cv.id = ai.course_id AND cv.version = :courseVersion))
                 GROUP BY aa.item_id, ai.stem, aa.chosen_answer::text
                 ORDER BY cnt DESC
                 LIMIT 200
-                """.replace(":courseId::uuid", f.courseId() != null ? "'" + f.courseId() + "'" : "NULL")
-                   .replace(":learnerId::uuid", f.learnerId() != null ? "'" + f.learnerId() + "'" : "NULL");
+                """;
 
-        List<WrongAnswerDistribution.Item> items = jdbc.query(sql, (rs, i) -> new WrongAnswerDistribution.Item(
+        List<WrongAnswerDistribution.Item> items = jdbc.query(sql, buildParams(f), (rs, i) -> new WrongAnswerDistribution.Item(
                 UUID.fromString(rs.getString("item_id")),
                 rs.getString("stem_preview"),
                 rs.getString("choice"),
@@ -79,15 +100,27 @@ public class AnalyticsService {
                 JOIN assessment_items ai ON ai.id = aa.item_id
                 JOIN knowledge_points kp ON kp.id = ai.knowledge_point_id
                 WHERE kp.id IS NOT NULL
-                  AND (:courseId::uuid IS NULL OR ai.course_id = :courseId::uuid)
-                  AND (:learnerId::uuid IS NULL OR aa.student_id = :learnerId::uuid)
+                  AND (CAST(:orgId AS uuid) IS NULL
+                       OR EXISTS(SELECT 1 FROM users ou WHERE ou.id = aa.student_id AND ou.organization_id = CAST(:orgId AS uuid)))
+                  AND (CAST(:fromTs AS timestamptz) IS NULL OR aa.attempted_at >= CAST(:fromTs AS timestamptz))
+                  AND (CAST(:toTs AS timestamptz) IS NULL OR aa.attempted_at <= CAST(:toTs AS timestamptz))
+                  AND (CAST(:courseId AS uuid) IS NULL OR ai.course_id = CAST(:courseId AS uuid))
+                  AND (CAST(:learnerId AS uuid) IS NULL OR aa.student_id = CAST(:learnerId AS uuid))
+                  AND (CAST(:cohortId AS uuid) IS NULL
+                       OR EXISTS(SELECT 1 FROM enrollments enr WHERE enr.student_id = aa.student_id AND enr.cohort_id = CAST(:cohortId AS uuid)))
+                  AND (CAST(:locationId AS uuid) IS NULL
+                       OR EXISTS(SELECT 1 FROM courses cloc WHERE cloc.id = ai.course_id AND cloc.location_id = CAST(:locationId AS uuid)))
+                  AND (CAST(:instructorId AS uuid) IS NULL
+                       OR EXISTS(SELECT 1 FROM cohorts co2 JOIN enrollments enr2 ON enr2.cohort_id = co2.id
+                                 WHERE enr2.student_id = aa.student_id AND co2.instructor_id = CAST(:instructorId AS uuid)))
+                  AND (:courseVersion IS NULL
+                       OR EXISTS(SELECT 1 FROM courses cv WHERE cv.id = ai.course_id AND cv.version = :courseVersion))
                 GROUP BY kp.id, kp.name
                 ORDER BY mastery_pct ASC
                 LIMIT 50
-                """.replace(":courseId::uuid", f.courseId() != null ? "'" + f.courseId() + "'" : "NULL")
-                   .replace(":learnerId::uuid", f.learnerId() != null ? "'" + f.learnerId() + "'" : "NULL");
+                """;
 
-        List<WeakKnowledgePointList.Item> items = jdbc.query(sql, (rs, i) -> new WeakKnowledgePointList.Item(
+        List<WeakKnowledgePointList.Item> items = jdbc.query(sql, buildParams(f), (rs, i) -> new WeakKnowledgePointList.Item(
                 UUID.fromString(rs.getString("kp_id")),
                 rs.getString("name"),
                 rs.getDouble("mastery_pct"),
@@ -101,19 +134,46 @@ public class AnalyticsService {
                 SELECT ai.id AS item_id, ai.difficulty, ai.discrimination, COUNT(aa.id) AS attempts
                 FROM assessment_items ai
                 LEFT JOIN assessment_attempts aa ON aa.item_id = ai.id
+                    AND (CAST(:fromTs AS timestamptz) IS NULL OR aa.attempted_at >= CAST(:fromTs AS timestamptz))
+                    AND (CAST(:toTs AS timestamptz) IS NULL OR aa.attempted_at <= CAST(:toTs AS timestamptz))
                 WHERE ai.deleted_at IS NULL
-                  AND (:courseId::uuid IS NULL OR ai.course_id = :courseId::uuid)
+                  AND (CAST(:orgId AS uuid) IS NULL
+                       OR aa.id IS NULL
+                       OR EXISTS(SELECT 1 FROM users ou WHERE ou.id = aa.student_id AND ou.organization_id = CAST(:orgId AS uuid)))
+                  AND (CAST(:courseId AS uuid) IS NULL OR ai.course_id = CAST(:courseId AS uuid))
+                  AND (CAST(:cohortId AS uuid) IS NULL
+                       OR EXISTS(SELECT 1 FROM enrollments enr WHERE enr.student_id = aa.student_id AND enr.cohort_id = CAST(:cohortId AS uuid)))
+                  AND (CAST(:locationId AS uuid) IS NULL
+                       OR EXISTS(SELECT 1 FROM courses cloc WHERE cloc.id = ai.course_id AND cloc.location_id = CAST(:locationId AS uuid)))
+                  AND (CAST(:instructorId AS uuid) IS NULL
+                       OR EXISTS(SELECT 1 FROM cohorts co2 JOIN enrollments enr2 ON enr2.cohort_id = co2.id
+                                 WHERE enr2.student_id = aa.student_id AND co2.instructor_id = CAST(:instructorId AS uuid)))
+                  AND (:courseVersion IS NULL
+                       OR EXISTS(SELECT 1 FROM courses cv WHERE cv.id = ai.course_id AND cv.version = :courseVersion))
                 GROUP BY ai.id, ai.difficulty, ai.discrimination
                 ORDER BY attempts DESC
                 LIMIT 200
-                """.replace(":courseId::uuid", f.courseId() != null ? "'" + f.courseId() + "'" : "NULL");
+                """;
 
-        List<ItemStatsList.Item> items = jdbc.query(sql, (rs, i) -> new ItemStatsList.Item(
+        List<ItemStatsList.Item> items = jdbc.query(sql, buildParams(f), (rs, i) -> new ItemStatsList.Item(
                 UUID.fromString(rs.getString("item_id")),
                 rs.getDouble("difficulty"),
                 rs.getDouble("discrimination"),
                 rs.getLong("attempts")));
 
         return new ItemStatsList(items);
+    }
+
+    private MapSqlParameterSource buildParams(AnalyticsFilter f) {
+        return new MapSqlParameterSource()
+                .addValue("orgId", f.organizationId() != null ? f.organizationId().toString() : null)
+                .addValue("fromTs", f.from() != null ? f.from().toString() : null)
+                .addValue("toTs", f.to() != null ? f.to().toString() : null)
+                .addValue("courseId", f.courseId() != null ? f.courseId().toString() : null)
+                .addValue("learnerId", f.learnerId() != null ? f.learnerId().toString() : null)
+                .addValue("cohortId", f.cohortId() != null ? f.cohortId().toString() : null)
+                .addValue("locationId", f.locationId() != null ? f.locationId().toString() : null)
+                .addValue("instructorId", f.instructorId() != null ? f.instructorId().toString() : null)
+                .addValue("courseVersion", f.courseVersion());
     }
 }

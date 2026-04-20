@@ -2,67 +2,72 @@ import { test, expect } from './coverage.fixture';
 import { API, apiLogin, loginViaUI } from './helpers';
 
 /**
- * Flow 7: Recycle bin restore round-trip — soft-delete then restore a session.
+ * Flow 7: Recycle bin restore round-trip — admin soft-deletes a course,
+ * confirms it appears in the recycle bin UI, and restores it.
+ *
+ * The recycle bin supports courses and users. We exercise the course path
+ * here; a separate test could exercise the user soft-delete path the same way.
  */
 test.describe('Recycle bin restore', () => {
-  const studentUser = 'student_e2e_recycle';
-  let accessToken: string;
-  let sessionId: string;
+  const adminUser = 'admin';
+  const adminPassword = 'Admin@123!';
+  let adminToken: string;
+  let courseId: string;
+  let courseTitle: string;
 
   test.beforeAll(async ({ request }) => {
-    const res = await apiLogin(request, studentUser, 'E2eTest@123!');
-    accessToken = res.accessToken;
+    const admin = await apiLogin(request, adminUser, adminPassword);
+    adminToken = admin.accessToken;
   });
 
-  test('7a: create a session via API', async ({ request }) => {
-    sessionId = `01900000-0000-7000-8000-${Date.now().toString().padStart(12, '0')}`;
-    const res = await request.post(`${API}/api/v1/sessions`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+  test('7a: admin creates a course via API', async ({ request }) => {
+    courseTitle = `E2E Recycled Course ${Date.now()}`;
+    const res = await request.post(`${API}/api/v1/courses`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
       data: {
-        id: sessionId,
-        courseId: '00000000-0000-0000-0000-000000000010',
-        startedAt: new Date().toISOString(),
-        restSecondsDefault: 60,
-        clientUpdatedAt: new Date().toISOString(),
+        code: `E2E-${Date.now()}`,
+        title: courseTitle,
+        version: '2025.1',
+        classification: 'INTERNAL',
       },
     });
     expect(res.status()).toBe(201);
+    const body = await res.json();
+    courseId = body.id;
+    expect(courseId).toBeTruthy();
   });
 
-  test('7b: soft-delete the session from UI', async ({ page }) => {
-    await loginViaUI(page, studentUser, 'E2eTest@123!');
-    await page.goto(`/sessions`);
-
-    const sessionRow = page.locator(`[data-session-id="${sessionId}"]`);
-    await sessionRow.getByRole('button', { name: /delete/i }).click();
-    await page.getByRole('button', { name: /confirm/i }).click();
-
-    await expect(sessionRow).not.toBeVisible();
+  test('7b: admin soft-deletes the course via API', async ({ request }) => {
+    const res = await request.delete(`${API}/api/v1/courses/${courseId}`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    expect([204, 200]).toContain(res.status());
   });
 
-  test('7c: session appears in recycle bin', async ({ page }) => {
-    await loginViaUI(page, studentUser, 'E2eTest@123!');
-    await page.goto('/recycle-bin');
+  test('7c: admin sees course in /admin/recycle-bin', async ({ page }) => {
+    await loginViaUI(page, adminUser, adminPassword);
+    await page.goto('/admin/recycle-bin');
 
-    await expect(page.locator(`[data-session-id="${sessionId}"]`)).toBeVisible();
+    // Default tab is courses; wait for the entry list to render and
+    // assert the soft-deleted title appears.
+    await expect(page.getByText(courseTitle)).toBeVisible({ timeout: 10_000 });
   });
 
-  test('7d: restore session from recycle bin', async ({ page }) => {
-    await loginViaUI(page, studentUser, 'E2eTest@123!');
-    await page.goto('/recycle-bin');
-
-    const deletedRow = page.locator(`[data-session-id="${sessionId}"]`);
-    await deletedRow.getByRole('button', { name: /restore/i }).click();
-
-    await expect(deletedRow).not.toBeVisible();
+  test('7d: admin restores course via API', async ({ request }) => {
+    const res = await request.post(
+      `${API}/api/v1/admin/recycle-bin/courses/${courseId}/restore`,
+      { headers: { Authorization: `Bearer ${adminToken}` }, data: {} },
+    );
+    expect([204, 200]).toContain(res.status());
   });
 
-  test('7e: restored session appears in sessions list', async ({ request }) => {
-    const res = await request.get(`${API}/api/v1/sessions/${sessionId}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+  test('7e: restored course is returned by the list API', async ({ request }) => {
+    const res = await request.get(`${API}/api/v1/courses?size=200`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
     });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    expect(body.deletedAt).toBeNull();
+    const found = (body.content ?? []).some((c: { id: string }) => c.id === courseId);
+    expect(found).toBe(true);
   });
 });

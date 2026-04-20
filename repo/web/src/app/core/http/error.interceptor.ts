@@ -3,37 +3,45 @@ import { inject } from '@angular/core';
 import { catchError, throwError } from 'rxjs';
 import { ToastService } from '../stores/toast.service';
 
+interface ErrorBody { code?: string; message?: string; details?: unknown; }
+
+function extractBody(err: HttpErrorResponse): ErrorBody {
+  // Backend wraps errors as { error: { code, message, details } } (see ErrorEnvelope.java).
+  // Fall back to the top-level shape for older responses.
+  const envelope = err.error?.error;
+  if (envelope && typeof envelope === 'object') return envelope as ErrorBody;
+  if (err.error && typeof err.error === 'object') return err.error as ErrorBody;
+  return {};
+}
+
 export const errorInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, next: HttpHandlerFn) => {
   const toast = inject(ToastService);
 
   return next(req).pipe(
     catchError((err: HttpErrorResponse) => {
       if (err.status === 0) {
-        // Network error — offline interceptor already queued it; skip toast
         return throwError(() => err);
       }
+      const body = extractBody(err);
       if (err.status === 401 || err.status === 403) {
-        // auth interceptor handles redirect; only show toast for 403
         if (err.status === 403) {
-          const code = err.error?.code ?? 'FORBIDDEN';
+          const code = body.code ?? 'FORBIDDEN';
           toast.error(code === 'ACCOUNT_LOCKED' ? 'Account is locked. Contact your administrator.' : 'Access denied.');
         }
         return throwError(() => err);
       }
       if (err.status === 409) {
-        const code = err.error?.code;
-        if (code === 'IDEMPOTENCY_MISMATCH') {
+        if (body.code === 'IDEMPOTENCY_MISMATCH') {
           toast.warn('Request already submitted with different parameters.');
         } else {
-          toast.warn(err.error?.message ?? 'Conflict');
+          toast.warn(body.message ?? 'Conflict');
         }
         return throwError(() => err);
       }
       if (err.status >= 500) {
         toast.error('Server error. Please try again later.');
       } else if (err.status >= 400) {
-        const message = err.error?.message ?? err.message ?? 'Request failed.';
-        toast.warn(message);
+        toast.warn(body.message ?? err.message ?? 'Request failed.');
       }
       return throwError(() => err);
     })

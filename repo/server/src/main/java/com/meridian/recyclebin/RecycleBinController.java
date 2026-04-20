@@ -8,6 +8,7 @@ import com.meridian.courses.repository.CourseRepository;
 import com.meridian.security.audit.AuditEvent;
 import com.meridian.security.audit.AuditEventRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -29,6 +30,14 @@ public class RecycleBinController {
     private final UserRepository userRepository;
     private final CourseRepository courseRepository;
     private final AuditEventRepository auditEventRepository;
+
+    @Value("${app.recycle-bin.retention-days:14}")
+    private int retentionDays;
+
+    @GetMapping("/policy")
+    public ResponseEntity<RetentionPolicy> policy() {
+        return ResponseEntity.ok(new RetentionPolicy(retentionDays));
+    }
 
     @GetMapping
     public ResponseEntity<PageResponse<RecycleBinEntry>> list(
@@ -91,4 +100,6 @@ public class RecycleBinController {
     }
 
     record RecycleBinEntry(UUID id, String type, String label, Instant deletedAt) {}
+
+    record RetentionPolicy(int retentionDays) {}
 }

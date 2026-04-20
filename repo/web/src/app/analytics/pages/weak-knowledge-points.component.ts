@@ -6,7 +6,16 @@ import { AuthStore } from '../../core/stores/auth.store';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { catchError, of } from 'rxjs';
 
-interface WeakPoint { knowledgePointId: string; name: string; avgScore: number; attemptCount: number; }
+interface WeakKnowledgePointItem {
+  knowledgePointId: string;
+  name: string;
+  masteryPct: number;
+  attemptVolume: number;
+}
+
+interface WeakKnowledgePointResponse {
+  items: WeakKnowledgePointItem[];
+}
 
 @Component({
   selector: 'app-weak-knowledge-points',
@@ -21,8 +30,18 @@ interface WeakPoint { knowledgePointId: string; name: string; avgScore: number; 
           <input formControlName="learnerId" type="text" placeholder="Learner ID"
             class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
         }
-        <input formControlName="threshold" type="number" min="0" max="1" step="0.05" placeholder="Threshold (0-1)"
-          class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px] w-44" />
+        <input formControlName="courseId" type="text" placeholder="Course ID"
+          class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
+        <input formControlName="courseVersion" type="text" placeholder="Course version"
+          class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
+        <input formControlName="locationId" type="text" placeholder="Location ID"
+          class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
+        <input formControlName="instructorId" type="text" placeholder="Instructor ID"
+          class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
+        <input formControlName="from" type="date"
+          class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
+        <input formControlName="to" type="date"
+          class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
         <button type="button" (click)="load()"
           class="bg-[var(--color-brand-600)] text-white rounded-lg px-4 py-2 text-sm min-h-[48px]">
           Apply
@@ -41,12 +60,12 @@ interface WeakPoint { knowledgePointId: string; name: string; avgScore: number; 
             <div class="bg-[var(--color-surface-raised)] border border-[var(--color-border)] rounded-xl px-5 py-4">
               <div class="flex items-center justify-between mb-2">
                 <p class="font-medium text-sm">{{ row.name || row.knowledgePointId }}</p>
-                <span class="text-red-700 font-semibold text-sm">{{ (row.avgScore * 100).toFixed(0) }}%</span>
+                <span class="text-red-700 font-semibold text-sm">{{ row.masteryPct.toFixed(0) }}%</span>
               </div>
               <div class="h-2 rounded-full bg-[var(--color-surface-overlay)]">
-                <div class="h-2 rounded-full bg-red-400" [style.width]="(row.avgScore * 100) + '%'"></div>
+                <div class="h-2 rounded-full bg-red-400" [style.width]="row.masteryPct + '%'"></div>
               </div>
-              <p class="text-xs text-[var(--color-text-muted)] mt-1">{{ row.attemptCount }} attempts</p>
+              <p class="text-xs text-[var(--color-text-muted)] mt-1">{{ row.attemptVolume }} attempts</p>
             </div>
           }
         </div>
@@ -56,12 +75,15 @@ interface WeakPoint { knowledgePointId: string; name: string; avgScore: number; 
 })
 export class WeakKnowledgePointsComponent implements OnInit {
   filters: FormGroup;
-  data: WeakPoint[] = [];
+  data: WeakKnowledgePointItem[] = [];
   loading = false;
   canFilter = false;
 
   constructor(private fb: FormBuilder, private http: HttpClient, private authStore: AuthStore) {
-    this.filters = this.fb.group({ learnerId: [''], threshold: [0.6] });
+    this.filters = this.fb.group({
+      learnerId: [''], courseId: [''], courseVersion: [''],
+      locationId: [''], instructorId: [''], from: [''], to: [''],
+    });
   }
 
   ngOnInit(): void {
@@ -71,17 +93,23 @@ export class WeakKnowledgePointsComponent implements OnInit {
 
   load(): void {
     this.loading = true;
-    const { learnerId, threshold } = this.filters.value;
+    const v = this.filters.value;
     const role = this.authStore.userRole();
-    let params = `threshold=${threshold ?? 0.6}`;
+    const parts: string[] = [];
     if (role === 'STUDENT') {
-      params += `&learnerId=${this.authStore.userId()}`;
-    } else if (learnerId) {
-      params += `&learnerId=${learnerId}`;
+      parts.push(`learnerId=${this.authStore.userId()}`);
+    } else if (v.learnerId) {
+      parts.push(`learnerId=${v.learnerId}`);
     }
+    if (v.courseId) parts.push(`courseId=${v.courseId}`);
+    if (v.courseVersion) parts.push(`courseVersion=${encodeURIComponent(v.courseVersion)}`);
+    if (v.locationId) parts.push(`locationId=${v.locationId}`);
+    if (v.instructorId) parts.push(`instructorId=${v.instructorId}`);
+    if (v.from) parts.push(`from=${new Date(v.from).toISOString()}`);
+    if (v.to) parts.push(`to=${new Date(v.to).toISOString()}`);
 
-    this.http.get<WeakPoint[]>(`/api/v1/analytics/weak-knowledge-points?${params}`).pipe(
-      catchError(() => of([]))
-    ).subscribe(d => { this.data = d; this.loading = false; });
+    this.http.get<WeakKnowledgePointResponse>(`/api/v1/analytics/weak-knowledge-points?${parts.join('&')}`).pipe(
+      catchError(() => of({ items: [] as WeakKnowledgePointItem[] }))
+    ).subscribe(d => { this.data = d.items ?? []; this.loading = false; });
   }
 }

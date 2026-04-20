@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.UUID;
 
 public interface CourseRepository extends JpaRepository<Course, UUID> {
@@ -17,14 +18,14 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
              AND (:version IS NULL OR c.version = :version)
              AND (:locationId IS NULL OR c.locationId = :locationId)
              AND (:instructorId IS NULL OR c.instructorId = :instructorId)
-             AND (:classification IS NULL OR c.classification = :classification)
+             AND (:#{#classifications} IS NULL OR c.classification IN :classifications)
              AND (:q IS NULL OR LOWER(c.code) LIKE LOWER(CONCAT('%', :q, '%'))
                              OR LOWER(c.title) LIKE LOWER(CONCAT('%', :q, '%')))
            """)
     Page<Course> findFiltered(@Param("version") String version,
                               @Param("locationId") UUID locationId,
                               @Param("instructorId") UUID instructorId,
-                              @Param("classification") String classification,
+                              @Param("classifications") Collection<String> classifications,
                               @Param("q") String q,
                               Pageable pageable);
 }

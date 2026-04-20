@@ -1,5 +1,8 @@
 package com.meridian.notifications;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.meridian.common.web.PageResponse;
 import com.meridian.notifications.dto.NotificationDto;
 import com.meridian.notifications.entity.InAppNotification;
@@ -7,9 +10,9 @@ import com.meridian.notifications.entity.NotificationTemplate;
 import com.meridian.notifications.repository.InAppNotificationRepository;
 import com.meridian.notifications.repository.NotificationTemplateRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.repository.Query;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -17,10 +20,12 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/notifications")
 @RequiredArgsConstructor
@@ -29,6 +34,7 @@ public class NotificationController {
     private final InAppNotificationRepository notifRepo;
     private final NotificationTemplateRepository templateRepo;
     private final TemplateRenderer renderer;
+    private final ObjectMapper objectMapper;
 
     @GetMapping
     public ResponseEntity<PageResponse<NotificationDto>> list(
@@ -78,13 +84,35 @@ public class NotificationController {
     }
 
     private NotificationDto toDto(InAppNotification n) {
+        Map<String, String> vars = parsePayloadVars(n.getPayload());
         NotificationTemplate tmpl = templateRepo.findById(n.getTemplateKey()).orElse(null);
-        String subject = tmpl != null ? renderer.render(tmpl.getTitleTmpl(), Map.of()) : n.getTemplateKey();
-        String bodyHtml = tmpl != null ? renderer.renderToHtml(tmpl.getBodyTmpl(), Map.of()) : "";
+        String subject = tmpl != null ? renderer.render(tmpl.getTitleTmpl(), vars) : n.getTemplateKey();
+        String bodyHtml = tmpl != null ? renderer.renderToHtml(tmpl.getBodyTmpl(), vars) : "";
         String severity = n.getSeverity() != null ? n.getSeverity() : "INFO";
         return new NotificationDto(n.getId(), n.getUserId(), n.getTemplateKey(),
                 n.getPayload(),
                 new NotificationDto.RenderedContent(subject, bodyHtml),
                 severity, n.getReadAt(), n.getCreatedAt());
+    }
+
+    private Map<String, String> parsePayloadVars(String payload) {
+        Map<String, String> vars = new HashMap<>();
+        if (payload == null || payload.isBlank()) return vars;
+        try {
+            JsonNode node = objectMapper.readTree(payload);
+            if (node.isObject()) {
+                node.fields().forEachRemaining(e -> {
+                    JsonNode v = e.getValue();
+                    if (v.isValueNode()) {
+                        vars.put(e.getKey(), v.asText());
+                    } else if (!v.isNull()) {
+                        vars.put(e.getKey(), v.toString());
+                    }
+                });
+            }
+        } catch (Exception e) {
+            log.debug("Could not parse notification payload as JSON object: {}", e.getMessage());
+        }
+        return vars;
     }
 }

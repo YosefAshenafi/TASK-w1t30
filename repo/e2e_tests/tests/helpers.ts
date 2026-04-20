@@ -10,9 +10,8 @@ export async function apiLogin(request: APIRequestContext, username: string, pas
 }
 
 export async function adminApproveUser(request: APIRequestContext, adminToken: string, userId: string) {
-  await request.patch(`${API}/api/v1/admin/users/${userId}/status`, {
+  await request.post(`${API}/api/v1/admin/users/${userId}/approve`, {
     headers: { Authorization: `Bearer ${adminToken}` },
-    data: { status: 'ACTIVE' },
   });
 }
 

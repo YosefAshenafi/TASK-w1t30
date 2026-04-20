@@ -29,8 +29,39 @@ public class TemplateRenderer {
     }
 
     public String renderToHtml(String markdownTemplate, Map<String, String> vars) {
-        String rendered = render(markdownTemplate, vars);
+        // Variable substitutions are HTML-escaped before the markdown parser
+        // sees them so that user-provided content (usernames, course names,
+        // free-form notes) cannot inject script tags or attributes into the
+        // rendered HTML body of notifications.
+        Map<String, String> escaped = escapeValues(vars);
+        String rendered = render(markdownTemplate, escaped);
         Node document = markdownParser.parse(rendered);
         return htmlRenderer.render(document);
+    }
+
+    private static Map<String, String> escapeValues(Map<String, String> in) {
+        if (in == null || in.isEmpty()) return java.util.Map.of();
+        java.util.Map<String, String> out = new java.util.HashMap<>(in.size());
+        for (var entry : in.entrySet()) {
+            out.put(entry.getKey(), escapeHtml(entry.getValue()));
+        }
+        return out;
+    }
+
+    private static String escapeHtml(String v) {
+        if (v == null) return "";
+        StringBuilder sb = new StringBuilder(v.length());
+        for (int i = 0; i < v.length(); i++) {
+            char c = v.charAt(i);
+            switch (c) {
+                case '&' -> sb.append("&amp;");
+                case '<' -> sb.append("&lt;");
+                case '>' -> sb.append("&gt;");
+                case '"' -> sb.append("&quot;");
+                case '\'' -> sb.append("&#39;");
+                default -> sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 }

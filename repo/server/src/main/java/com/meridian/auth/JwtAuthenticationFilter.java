@@ -1,5 +1,6 @@
 package com.meridian.auth;
 
+import com.meridian.common.security.AuthPrincipal;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -17,6 +18,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -38,11 +40,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Claims claims = jwtService.parseToken(token);
                 String userId = claims.getSubject();
                 String role = claims.get("role", String.class);
+                String orgIdStr = claims.get("orgId", String.class);
 
                 if (userId != null && role != null &&
                         SecurityContextHolder.getContext().getAuthentication() == null) {
+                    UUID orgId = orgIdStr != null ? UUID.fromString(orgIdStr) : null;
+                    AuthPrincipal principal = new AuthPrincipal(UUID.fromString(userId), role, orgId);
                     var auth = new UsernamePasswordAuthenticationToken(
-                            userId, null,
+                            principal, null,
                             List.of(new SimpleGrantedAuthority("ROLE_" + role)));
                     SecurityContextHolder.getContext().setAuthentication(auth);
                 }

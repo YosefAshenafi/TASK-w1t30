@@ -3,6 +3,16 @@ VALUES ('00000000-0000-0000-0000-000000000002', 'sync_test_student', 'Sync Test 
         '$2a$12$placeholder', 'STUDENT', 'ACTIVE', '00000000-0000-0000-0000-000000000001')
 ON CONFLICT DO NOTHING;
 
+INSERT INTO users (id, username, display_name, password_bcrypt, role, status, organization_id)
+VALUES ('00000000-0000-0000-0000-000000000003', 'sync_test_other', 'Sync Test Other',
+        '$2a$12$placeholder', 'STUDENT', 'ACTIVE', '00000000-0000-0000-0000-000000000001')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO users (id, username, display_name, password_bcrypt, role, status, organization_id)
+VALUES ('00000000-0000-0000-0000-000000000099', 'sync_test_other_org', 'Other Org Student',
+        '$2a$12$placeholder', 'STUDENT', 'ACTIVE', '00000000-0000-0000-0000-000000000001')
+ON CONFLICT DO NOTHING;
+
 INSERT INTO courses (id, code, title, version, location_id, instructor_id, classification)
 VALUES ('00000000-0000-0000-0000-000000000c10', 'SYNC-TEST-001', 'Sync Test Course', '1.0',
         '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000020', 'INTERNAL')

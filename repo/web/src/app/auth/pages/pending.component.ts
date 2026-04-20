@@ -26,7 +26,7 @@ import { switchMap, catchError, of } from 'rxjs';
         <button
           (click)="logout()"
           class="mt-6 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-danger)] underline min-h-0">
-          Sign out
+          Back to sign in
         </button>
       </div>
     </div>
@@ -42,6 +42,13 @@ export class PendingComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    // /pending is reachable from two places:
+    //  1) an authenticated session (admin just moved the user to PENDING) — keep polling
+    //  2) a rejected login (ACCOUNT_PENDING) — no token, so the poll is skipped
+    //     and the user sees the pending-state UI until they retry later.
+    if (!this.authStore.isAuthenticated()) {
+      return;
+    }
     this.pollSubscription = interval(60_000).pipe(
       switchMap(() =>
         this.http.get<UserProfile>('/api/v1/users/me').pipe(

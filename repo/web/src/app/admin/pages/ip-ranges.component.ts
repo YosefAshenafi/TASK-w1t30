@@ -10,9 +10,8 @@ import { catchError, of } from 'rxjs';
 interface IpRange {
   id: string;
   cidr: string;
-  role: string;
-  description: string | null;
-  createdAt: string;
+  roleScope: string | null;
+  note: string | null;
 }
 
 @Component({
@@ -36,8 +35,8 @@ interface IpRange {
               class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
           </div>
           <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium">Role</label>
-            <select formControlName="role"
+            <label class="text-xs font-medium">Role scope</label>
+            <select formControlName="roleScope"
               class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px] bg-[var(--color-surface)]">
               <option value="">All roles</option>
               <option value="STUDENT">Student</option>
@@ -47,8 +46,8 @@ interface IpRange {
             </select>
           </div>
           <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium">Description</label>
-            <input formControlName="description" type="text" placeholder="Optional"
+            <label class="text-xs font-medium">Note</label>
+            <input formControlName="note" type="text" placeholder="Optional"
               class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
           </div>
           <app-button type="submit" variant="primary" [loading]="adding" [disabled]="form.invalid">Add</app-button>
@@ -65,8 +64,8 @@ interface IpRange {
             <thead class="bg-[var(--color-surface-raised)]">
               <tr>
                 <th class="px-4 py-3 text-left font-medium text-[var(--color-text-muted)]">CIDR</th>
-                <th class="px-4 py-3 text-left font-medium text-[var(--color-text-muted)]">Role</th>
-                <th class="px-4 py-3 text-left font-medium text-[var(--color-text-muted)]">Description</th>
+                <th class="px-4 py-3 text-left font-medium text-[var(--color-text-muted)]">Role scope</th>
+                <th class="px-4 py-3 text-left font-medium text-[var(--color-text-muted)]">Note</th>
                 <th class="px-4 py-3 text-right font-medium text-[var(--color-text-muted)]">Actions</th>
               </tr>
             </thead>
@@ -74,8 +73,8 @@ interface IpRange {
               @for (r of ranges; track r.id) {
                 <tr class="hover:bg-[var(--color-surface-raised)]">
                   <td class="px-4 py-3 font-mono text-xs">{{ r.cidr }}</td>
-                  <td class="px-4 py-3 text-xs">{{ r.role || 'All' }}</td>
-                  <td class="px-4 py-3 text-xs text-[var(--color-text-muted)]">{{ r.description || '—' }}</td>
+                  <td class="px-4 py-3 text-xs">{{ r.roleScope || 'All' }}</td>
+                  <td class="px-4 py-3 text-xs text-[var(--color-text-muted)]">{{ r.note || '—' }}</td>
                   <td class="px-4 py-3 text-right">
                     <button (click)="remove(r.id)" class="text-xs text-[var(--color-danger)] hover:underline min-h-0">Delete</button>
                   </td>
@@ -101,8 +100,8 @@ export class AdminIpRangesComponent implements OnInit {
   constructor(private fb: FormBuilder, private http: HttpClient) {
     this.form = this.fb.group({
       cidr: ['', Validators.required],
-      role: [''],
-      description: [''],
+      roleScope: [''],
+      note: [''],
     });
   }
 
@@ -118,7 +117,13 @@ export class AdminIpRangesComponent implements OnInit {
   add(): void {
     if (this.form.invalid || this.adding) return;
     this.adding = true;
-    this.http.post<IpRange>('/api/v1/admin/allowed-ip-ranges', this.form.value).pipe(
+    const { cidr, roleScope, note } = this.form.value;
+    const body = {
+      cidr,
+      roleScope: roleScope || null,
+      note: note || null,
+    };
+    this.http.post<IpRange>('/api/v1/admin/allowed-ip-ranges', body).pipe(
       catchError(() => of(null))
     ).subscribe(r => {
       this.adding = false;

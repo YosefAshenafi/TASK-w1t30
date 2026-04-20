@@ -8,12 +8,13 @@ import { catchError, of } from 'rxjs';
 
 interface Approval {
   id: string;
-  resourceType: string;
-  resourceId: string;
-  requestedBy: string;
-  reason: string | null;
+  type: string;
   status: string;
-  requestedAt: string;
+  requestedBy: string;
+  reviewedBy: string | null;
+  reason: string | null;
+  createdAt: string;
+  decidedAt: string | null;
   expiresAt: string;
 }
 
@@ -41,12 +42,12 @@ interface Approval {
             <div class="bg-[var(--color-surface-raised)] border border-[var(--color-border)] rounded-xl px-5 py-4">
               <div class="flex items-start justify-between gap-4">
                 <div>
-                  <p class="font-medium text-sm">{{ item.resourceType }} — {{ item.resourceId }}</p>
+                  <p class="font-medium text-sm">{{ item.type }} · <span class="text-[var(--color-text-muted)]">{{ item.status }}</span></p>
                   @if (item.reason) {
                     <p class="text-xs text-[var(--color-text-muted)] mt-0.5">{{ item.reason }}</p>
                   }
                   <p class="text-xs text-[var(--color-text-muted)] mt-1">
-                    Requested {{ formatDate(item.requestedAt) }} · Expires {{ formatDate(item.expiresAt) }}
+                    Requested {{ formatDate(item.createdAt) }} · Expires {{ formatDate(item.expiresAt) }}
                   </p>
                 </div>
                 <div class="flex gap-2 flex-shrink-0">
@@ -78,7 +79,9 @@ export class AdminApprovalsComponent implements OnInit {
   }
 
   decide(item: Approval, decision: string): void {
-    this.http.post(`/api/v1/admin/approvals/${item.id}/${decision.toLowerCase()}`, {}).pipe(
+    const body = decision === 'REJECTED' ? { reason: 'Rejected by admin' } : {};
+    const path = decision === 'APPROVED' ? 'approve' : 'reject';
+    this.http.post(`/api/v1/admin/approvals/${item.id}/${path}`, body).pipe(
       catchError(() => of(null))
     ).subscribe(ok => {
       if (ok !== null) { this.message = `Request ${decision.toLowerCase()}.`; this.load(); }

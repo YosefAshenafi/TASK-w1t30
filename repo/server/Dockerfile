@@ -1,6 +1,10 @@
 # dev stage — Maven + JDK, runs with spring-boot:run (used by docker-compose.yml)
 FROM maven:3.9-eclipse-temurin-21 AS dev
 WORKDIR /app
+# Install PostgreSQL client utilities so BackupRunner can invoke pg_dump/pg_restore.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
 COPY pom.xml .
 COPY mvnw .
 COPY .mvn .mvn
@@ -18,7 +22,9 @@ RUN mvn -q -DskipTests package
 
 # runtime stage — slim JRE, runs the pre-built JAR (use for production)
 FROM eclipse-temurin:21-jre-jammy AS runtime
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
+# postgresql-client is required for pg_dump/pg_restore invoked by BackupRunner.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar

@@ -10,9 +10,10 @@ import { catchError, of } from 'rxjs';
 
 interface Template {
   key: string;
-  titleTmpl: string;
-  bodyTmpl: string;
-  variables: string;
+  subject: string;
+  bodyMarkdown: string;
+  variables: string[];
+  updatedAt: string | null;
 }
 
 @Component({
@@ -45,7 +46,7 @@ interface Template {
               @for (t of templates; track t.key) {
                 <tr class="hover:bg-[var(--color-surface-raised)]">
                   <td class="px-4 py-3 font-mono text-xs">{{ t.key }}</td>
-                  <td class="px-4 py-3 text-sm">{{ t.titleTmpl }}</td>
+                  <td class="px-4 py-3 text-sm">{{ t.subject }}</td>
                   <td class="px-4 py-3 text-right">
                     <button (click)="openEdit(t)" class="text-xs text-[var(--color-brand-600)] hover:underline min-h-0">Edit</button>
                   </td>
@@ -60,13 +61,13 @@ interface Template {
     <app-dialog [open]="editOpen" [title]="'Edit: ' + editKey" [hasFooter]="true" (closed)="editOpen=false">
       <form [formGroup]="editForm" (ngSubmit)="saveEdit()" class="flex flex-col gap-4">
         <div class="flex flex-col gap-1">
-          <label class="text-sm font-medium">Title template</label>
-          <input formControlName="titleTmpl" type="text"
+          <label class="text-sm font-medium">Subject</label>
+          <input formControlName="subject" type="text"
             class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
         </div>
         <div class="flex flex-col gap-1">
-          <label class="text-sm font-medium">Body template (Markdown)</label>
-          <textarea formControlName="bodyTmpl" rows="6"
+          <label class="text-sm font-medium">Body (Markdown)</label>
+          <textarea formControlName="bodyMarkdown" rows="6"
             class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none resize-y font-mono"></textarea>
         </div>
       </form>
@@ -88,8 +89,8 @@ export class AdminTemplatesComponent implements OnInit {
 
   constructor(private fb: FormBuilder, private http: HttpClient) {
     this.editForm = this.fb.group({
-      titleTmpl: ['', Validators.required],
-      bodyTmpl: ['', Validators.required],
+      subject: ['', Validators.required],
+      bodyMarkdown: ['', Validators.required],
     });
   }
 
@@ -97,21 +98,22 @@ export class AdminTemplatesComponent implements OnInit {
 
   load(): void {
     this.loading = true;
-    this.http.get<Template[]>('/api/v1/admin/notification-templates').pipe(
-      catchError(() => of([]))
-    ).subscribe(t => { this.templates = t; this.loading = false; });
+    this.http.get<{ content: Template[] }>('/api/v1/admin/notification-templates').pipe(
+      catchError(() => of({ content: [] }))
+    ).subscribe(r => { this.templates = r.content; this.loading = false; });
   }
 
   openEdit(t: Template): void {
     this.editKey = t.key;
-    this.editForm.setValue({ titleTmpl: t.titleTmpl, bodyTmpl: t.bodyTmpl });
+    this.editForm.setValue({ subject: t.subject, bodyMarkdown: t.bodyMarkdown });
     this.editOpen = true;
   }
 
   saveEdit(): void {
     if (this.editForm.invalid || this.saving) return;
     this.saving = true;
-    this.http.put(`/api/v1/admin/notification-templates/${this.editKey}`, this.editForm.value).pipe(
+    const { subject, bodyMarkdown } = this.editForm.value;
+    this.http.put(`/api/v1/admin/notification-templates/${this.editKey}`, { subject, bodyMarkdown }).pipe(
       catchError(() => of(null))
     ).subscribe(ok => {
       this.saving = false;

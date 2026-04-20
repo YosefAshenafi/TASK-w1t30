@@ -40,7 +40,8 @@ public class RecoveryDrillRunner {
 
             String dbHost = extractHost(datasourceUrl);
             String dbPort = extractPort(datasourceUrl);
-            String dbUser = System.getenv("DB_USER") != null ? System.getenv("DB_USER") : "meridian";
+            String dbUser = System.getenv("DB_USERNAME") != null ? System.getenv("DB_USERNAME") :
+                            System.getenv("DB_USER") != null ? System.getenv("DB_USER") : "meridian";
             String pgPassword = System.getenv("DB_PASSWORD") != null ? System.getenv("DB_PASSWORD") : "meridian_secret";
 
             // Create throwaway database

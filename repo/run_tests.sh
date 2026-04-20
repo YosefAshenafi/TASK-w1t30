@@ -112,7 +112,7 @@ run_server_unit_tests() {
     copied+=("$dest/$(basename "$f")")
   done
 
-  local tests="PasswordPolicyTest,LockoutPolicyTest,JwtServiceTest,IdempotencyServiceTest,SyncResolverTest"
+  local tests="PasswordPolicyTest,LockoutPolicyTest,JwtServiceTest,IdempotencyServiceTest,SyncResolverTest,TemplateRendererTest"
   local result=0
   (cd "$REPO/server" && ./mvnw test -Dtest="$tests" \
       -Djacoco.destFile=target/jacoco-unit.exec \
@@ -143,7 +143,7 @@ run_api_integration_tests() {
     copied+=("$dest/$(basename "$f")")
   done
 
-  local tests="AuthApiTest,SyncApiTest"
+  local tests="AuthApiTest,SyncApiTest,OrgScopeApiTest,ReportApiTest,AuthAuditTest,ClassificationApiTest"
   local result=0
   (cd "$REPO/server" && ./mvnw test -Dtest="$tests" \
       -Djacoco.destFile=target/jacoco-it.exec \
@@ -185,6 +185,19 @@ run_web_unit_tests() {
 
   cp "$REPO/unit_tests/web/outbox.service.spec.ts" "$http_dest/outbox.service.spec.ts"
   copied+=("$http_dest/outbox.service.spec.ts")
+
+  # pending-route.spec.ts imports from ../../web/src/app/app.routes
+  local app_dest="$web/src/app"
+  sed "s|../../web/src/app/|./|g" \
+      "$REPO/unit_tests/web/pending-route.spec.ts" > "$app_dest/pending-route.spec.ts"
+  copied+=("$app_dest/pending-route.spec.ts")
+
+  # session-sync-keys.spec.ts imports from ../../web/src/app/...
+  local sessions_dest="$web/src/app/sessions"
+  sed "s|../../web/src/app/sessions/|./|g; \
+       s|../../web/src/app/core/db/|../core/db/|g" \
+      "$REPO/unit_tests/web/session-sync-keys.spec.ts" > "$sessions_dest/session-sync-keys.spec.ts"
+  copied+=("$sessions_dest/session-sync-keys.spec.ts")
 
   local result=0
   (cd "$web" && ./node_modules/.bin/ng test --watch=false --browsers=ChromeHeadlessCI \

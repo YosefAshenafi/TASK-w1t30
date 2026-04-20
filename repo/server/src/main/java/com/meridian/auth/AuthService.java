@@ -6,6 +6,10 @@ import com.meridian.auth.entity.User;
 import com.meridian.auth.repository.RefreshTokenRepository;
 import com.meridian.auth.repository.UserRepository;
 import com.meridian.notifications.NotificationService;
+import com.meridian.organizations.repository.OrganizationRepository;
+import com.meridian.security.audit.AuditEvent;
+import com.meridian.security.audit.AuditEventPublisher;
+import com.meridian.security.audit.AuditEventRepository;
 import com.meridian.security.entity.AnomalyEvent;
 import com.meridian.security.repository.AllowedIpRangeRepository;
 import com.meridian.security.repository.AnomalyEventRepository;
@@ -34,8 +38,11 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final OrganizationRepository organizationRepository;
     private final AllowedIpRangeRepository allowedIpRangeRepository;
     private final AnomalyEventRepository anomalyEventRepository;
+    private final AuditEventRepository auditEventRepository;
+    private final AuditEventPublisher auditEventPublisher;
     private final NotificationService notificationService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -55,12 +62,21 @@ public class AuthService {
                     "organizationCode is required for CORPORATE_MENTOR role");
         }
 
+        UUID resolvedOrgId = null;
+        if ("CORPORATE_MENTOR".equals(req.requestedRole()) && req.organizationCode() != null && !req.organizationCode().isBlank()) {
+            resolvedOrgId = organizationRepository.findByCode(req.organizationCode())
+                    .map(org -> org.getId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "UNKNOWN_ORGANIZATION_CODE"));
+        }
+
         User user = new User();
         user.setUsername(req.username());
         user.setDisplayName(req.displayName());
+        user.setEmail(req.email());
         user.setPasswordBcrypt(passwordEncoder.encode(req.password()));
         user.setRole(req.requestedRole());
         user.setStatus("PENDING");
+        if (resolvedOrgId != null) { user.setOrganizationId(resolvedOrgId); }
 
         user = userRepository.save(user);
         log.info("Registered user={} role={}", user.getId(), user.getRole());
@@ -80,6 +96,7 @@ public class AuthService {
             case "LOCKED" -> {
                 if (LockoutPolicy.isLockedOut(user)) {
                     userRepository.save(user);
+                    auditLogin("LOCKOUT", user.getId(), clientIp);
                     throw new ResponseStatusException(HttpStatus.FORBIDDEN, "ACCOUNT_LOCKED");
                 }
             }
@@ -91,12 +108,14 @@ public class AuthService {
         if (!passwordEncoder.matches(req.password(), user.getPasswordBcrypt())) {
             LockoutPolicy.recordFailure(user);
             userRepository.save(user);
+            auditLogin("LOGIN_FAILURE", user.getId(), clientIp);
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS");
         }
 
         LockoutPolicy.resetOnSuccess(user);
         user.setLastLoginAt(Instant.now());
         userRepository.save(user);
+        auditLogin("LOGIN_SUCCESS", user.getId(), clientIp);
 
         boolean newDevice = deviceFingerprintService.processFingerprint(
                 user.getId(), req.deviceFingerprint(), clientIp);
@@ -130,6 +149,13 @@ public class AuthService {
         User user = userRepository.findById(token.getUserId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "USER_NOT_FOUND"));
 
+        if (user.getDeletedAt() != null || !"ACTIVE".equals(user.getStatus())) {
+            // Suspended/locked/pending/deleted users must not receive new tokens.
+            // Revoke entire family to force re-login after an admin change.
+            refreshTokenRepository.revokeFamily(token.getFamilyId(), Instant.now());
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "USER_NOT_ACTIVE");
+        }
+
         String accessToken = jwtService.issueAccessToken(user.getId(), user.getRole(), user.getOrganizationId());
         String rawRefreshToken = issueRefreshToken(user.getId(), token.getFamilyId());
 
@@ -144,6 +170,15 @@ public class AuthService {
         String tokenHash = sha256(req.refreshToken());
         refreshTokenRepository.findByTokenHash(tokenHash)
                 .ifPresent(token -> refreshTokenRepository.revokeById(token.getId(), Instant.now()));
+    }
+
+    private void auditLogin(String action, UUID userId, String clientIp) {
+        AuditEvent event = AuditEvent.of(userId, action, "USER", userId.toString(),
+                "{\"ip\":\"" + (clientIp != null ? clientIp : "") + "\"}");
+        event.setIpAddress(clientIp);
+        // Publish in REQUIRES_NEW so the audit trail survives a rolled-back
+        // authentication transaction (e.g. bad password -> 401 rollback).
+        auditEventPublisher.publish(event);
     }
 
     private void checkIpAllowList(User user, String clientIp) {

@@ -121,7 +121,9 @@ export class AdminUsersComponent implements OnInit {
   }
 
   reject(user: User): void {
-    this.http.post(`/api/v1/admin/users/${user.id}/reject`, {}).pipe(catchError(() => of(null))).subscribe(ok => {
+    const reason = window.prompt(`Reason for rejecting ${user.username}:`);
+    if (!reason || !reason.trim()) return;
+    this.http.post(`/api/v1/admin/users/${user.id}/reject`, { reason: reason.trim() }).pipe(catchError(() => of(null))).subscribe(ok => {
       if (ok !== null) { this.message = `${user.username} rejected.`; this.messageType = 'success'; this.load(); }
       else { this.message = 'Action failed.'; this.messageType = 'error'; }
     });

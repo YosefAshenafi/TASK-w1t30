@@ -60,10 +60,14 @@ export class SessionStore {
     if (!session) return;
     const sets = await this.getSetsForSession(sessionId);
 
+    // Per-mutation idempotency keys bind to clientUpdatedAt so that the same
+    // mutation retried verbatim is a true dedupe (NOOP), but a subsequent
+    // update of the same entity carries a new key and is not treated as a
+    // conflict by the server.
+    const sessionKey = `session-${session.id}-${this.keyStamp(session.clientUpdatedAt)}`;
     const payload = {
       sessions: [{
         id: session.id,
-        studentId: session.studentId,
         courseId: session.courseId,
         cohortId: session.cohortId ?? null,
         startedAt: session.startedAt,
@@ -71,22 +75,28 @@ export class SessionStore {
         restSecondsDefault: session.restSecondsDefault,
         status: session.status,
         clientUpdatedAt: session.clientUpdatedAt,
-        idempotencyKey: session.id,
-        sets: sets.map(s => ({
-          id: s.id,
-          activityId: s.activityId,
-          setIndex: s.setIndex,
-          restSeconds: s.restSeconds,
-          completedAt: s.completedAt ?? null,
-          notes: s.notes ?? null,
-          clientUpdatedAt: s.clientUpdatedAt,
-          idempotencyKey: s.id,
-        })),
+        idempotencyKey: sessionKey,
       }],
+      sets: sets.map(s => ({
+        idempotencyKey: `set-${s.id}-${this.keyStamp(s.clientUpdatedAt)}`,
+        sessionId: session.id,
+        activityId: s.activityId,
+        setIndex: s.setIndex,
+        restSeconds: s.restSeconds,
+        completedAt: s.completedAt ?? null,
+        notes: s.notes ?? null,
+        clientUpdatedAt: s.clientUpdatedAt,
+      })),
     };
 
     this.http.post('/api/v1/sessions/sync', payload).subscribe({
       error: err => console.warn('Session sync failed, will retry via outbox', err),
     });
+  }
+
+  private keyStamp(clientUpdatedAt: string | undefined): string {
+    if (!clientUpdatedAt) return '0';
+    const t = Date.parse(clientUpdatedAt);
+    return Number.isNaN(t) ? clientUpdatedAt.replace(/[^0-9A-Za-z]/g, '') : String(t);
   }
 }

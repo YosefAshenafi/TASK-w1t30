@@ -1,8 +1,5 @@
 package com.meridian.sessions;
 
-// NOTE: This is a conceptual unit test illustrating the SyncResolver LWW + idempotency contract.
-// To run it, copy to server/src/test/java/com/meridian/sessions/ and ensure Mockito is on the test classpath.
-
 import com.meridian.common.idempotency.IdempotencyService;
 import com.meridian.sessions.dto.SyncRequest;
 import com.meridian.sessions.dto.SyncResult;

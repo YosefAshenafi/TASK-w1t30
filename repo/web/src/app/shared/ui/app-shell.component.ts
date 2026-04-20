@@ -111,8 +111,8 @@ export class AppShellComponent {
   }
 
   logout(): void {
-    const profile = this.authStore.userId();
-    this.http.post('/api/v1/auth/logout', {}).subscribe({
+    const rt = this.authStore.refreshToken();
+    this.http.post('/api/v1/auth/logout', rt ? { refreshToken: rt } : {}).subscribe({
       complete: () => {
         this.authStore.clearProfile();
         this.router.navigate(['/login']);

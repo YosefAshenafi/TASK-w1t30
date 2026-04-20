@@ -10,9 +10,12 @@ import { AppShellComponent } from './shared/ui/app-shell.component';
 export const routes: Routes = [
   { path: '', redirectTo: '/login', pathMatch: 'full' },
 
-  // Public auth pages (no shell)
+  // Public auth pages (no shell) — /pending stays outside the authenticated
+  // shell so PENDING-status users (whose login is rejected with 403) can
+  // still see the pending-state UI without triggering the auth guard.
   { path: 'login', component: LoginComponent },
   { path: 'register', component: RegisterComponent },
+  { path: 'pending', component: PendingComponent },
 
   // Authenticated shell wrapper
   {
@@ -20,7 +23,6 @@ export const routes: Routes = [
     component: AppShellComponent,
     canActivate: [authGuard],
     children: [
-      { path: 'pending', component: PendingComponent },
       { path: 'home', component: HomeComponent },
 
       // Sessions — Student only

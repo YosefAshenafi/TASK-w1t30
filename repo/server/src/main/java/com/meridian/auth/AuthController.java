@@ -38,10 +38,26 @@ public class AuthController {
     }
 
     private String getClientIp(HttpServletRequest request) {
-        String xForwardedFor = request.getHeader("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isBlank()) {
-            return xForwardedFor.split(",")[0].trim();
+        String remoteAddr = request.getRemoteAddr();
+        if (isTrustedProxy(remoteAddr)) {
+            String xForwardedFor = request.getHeader("X-Forwarded-For");
+            if (xForwardedFor != null && !xForwardedFor.isBlank()) {
+                return xForwardedFor.split(",")[0].trim();
+            }
         }
-        return request.getRemoteAddr();
+        return remoteAddr;
+    }
+
+    private boolean isTrustedProxy(String addr) {
+        return addr != null && (addr.startsWith("127.") || addr.startsWith("10.")
+                || addr.startsWith("192.168.") || addr.equals("::1")
+                || (addr.startsWith("172.") && isTrustedPrivate172(addr)));
+    }
+
+    private boolean isTrustedPrivate172(String addr) {
+        try {
+            int second = Integer.parseInt(addr.split("\\.")[1]);
+            return second >= 16 && second <= 31;
+        } catch (Exception e) { return false; }
     }
 }

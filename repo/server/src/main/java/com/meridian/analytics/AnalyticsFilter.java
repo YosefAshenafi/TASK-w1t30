@@ -11,5 +11,11 @@ public record AnalyticsFilter(
         UUID courseId,
         String courseVersion,
         UUID cohortId,
-        UUID learnerId
-) {}
+        UUID learnerId,
+        UUID organizationId
+) {
+    public AnalyticsFilter(Instant from, Instant to, UUID locationId, UUID instructorId,
+                           UUID courseId, String courseVersion, UUID cohortId, UUID learnerId) {
+        this(from, to, locationId, instructorId, courseId, courseVersion, cohortId, learnerId, null);
+    }
+}

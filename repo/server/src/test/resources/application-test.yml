@@ -18,3 +18,6 @@ app:
     refresh-token-idle-hours: 8
     refresh-token-absolute-hours: 12
   backup-path: /tmp/meridian-test-backups
+  export-path: /tmp/meridian-test-exports
+  rate-limit:
+    enabled: false

@@ -1,6 +1,8 @@
 package com.meridian.backups;
 
+import com.meridian.backups.entity.BackupPolicy;
 import com.meridian.backups.entity.BackupRun;
+import com.meridian.backups.repository.BackupPolicyRepository;
 import com.meridian.backups.repository.BackupRunRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,9 +11,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 
@@ -21,15 +23,23 @@ import java.time.format.DateTimeFormatter;
 public class BackupRunner {
 
     private final BackupRunRepository backupRunRepository;
+    private final BackupPolicyRepository backupPolicyRepository;
 
     @Value("${app.backup-path:/app/backups}")
-    private String backupPath;
+    private String defaultBackupPath;
 
     @Value("${spring.datasource.url:jdbc:postgresql://localhost:5432/meridian}")
     private String datasourceUrl;
 
+    @Value("${spring.datasource.username:meridian}")
+    private String datasourceUsername;
+
+    @Value("${spring.datasource.password:}")
+    private String datasourcePassword;
+
     @Async
     public void execute(BackupRun run) {
+        String backupPath = resolveBackupPath();
         try {
             Path dir = Path.of(backupPath);
             Files.createDirectories(dir);
@@ -39,10 +49,20 @@ public class BackupRunner {
             String filename = timestamp + "-" + run.getType().toLowerCase() + ".dump";
             String filePath = backupPath + "/" + filename;
 
-            String dbName = extractDbName(datasourceUrl);
-            ProcessBuilder pb = new ProcessBuilder("pg_dump", "-Fc", "-d", dbName, "-f", filePath);
-            pb.environment().put("PGPASSWORD", System.getenv("DB_PASSWORD") != null ?
-                    System.getenv("DB_PASSWORD") : "meridian_secret");
+            JdbcTarget target = parseJdbcUrl(datasourceUrl);
+            ProcessBuilder pb = new ProcessBuilder(
+                    "pg_dump",
+                    "-h", target.host,
+                    "-p", String.valueOf(target.port),
+                    "-U", datasourceUsername,
+                    "-d", target.database,
+                    "-Fc",
+                    "-f", filePath);
+            pb.redirectErrorStream(true);
+            pb.environment().put("PGPASSWORD",
+                    datasourcePassword != null && !datasourcePassword.isEmpty()
+                            ? datasourcePassword
+                            : System.getenv().getOrDefault("DB_PASSWORD", ""));
             Process process = pb.start();
             int exitCode = process.waitFor();
 
@@ -67,9 +87,31 @@ public class BackupRunner {
         backupRunRepository.save(run);
     }
 
-    private String extractDbName(String url) {
-        String[] parts = url.split("/");
-        String last = parts[parts.length - 1];
-        return last.contains("?") ? last.split("\\?")[0] : last;
+    private String resolveBackupPath() {
+        return backupPolicyRepository.findAll().stream()
+                .findFirst()
+                .map(BackupPolicy::getBackupPath)
+                .filter(p -> p != null && !p.isBlank())
+                .orElse(defaultBackupPath);
     }
+
+    JdbcTarget parseJdbcUrl(String url) {
+        String stripped = url.startsWith("jdbc:") ? url.substring("jdbc:".length()) : url;
+        try {
+            URI uri = URI.create(stripped);
+            String host = uri.getHost() != null ? uri.getHost() : "localhost";
+            int port = uri.getPort() > 0 ? uri.getPort() : 5432;
+            String path = uri.getPath() != null ? uri.getPath() : "";
+            String database = path.startsWith("/") ? path.substring(1) : path;
+            int q = database.indexOf('?');
+            if (q >= 0) database = database.substring(0, q);
+            if (database.isBlank()) database = "meridian";
+            return new JdbcTarget(host, port, database);
+        } catch (IllegalArgumentException e) {
+            log.warn("Could not parse datasource URL {}, falling back to defaults", url);
+            return new JdbcTarget("localhost", 5432, "meridian");
+        }
+    }
+
+    record JdbcTarget(String host, int port, String database) {}
 }

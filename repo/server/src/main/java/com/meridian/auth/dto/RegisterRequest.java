@@ -1,5 +1,6 @@
 package com.meridian.auth.dto;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -14,7 +15,10 @@ public record RegisterRequest(
         @NotBlank
         String displayName,
 
-        @NotBlank @Pattern(regexp = "STUDENT|CORPORATE_MENTOR|FACULTY_MENTOR|ADMIN")
+        @Email
+        String email,
+
+        @NotBlank @Pattern(regexp = "STUDENT|CORPORATE_MENTOR|FACULTY_MENTOR")
         String requestedRole,
 
         String organizationCode

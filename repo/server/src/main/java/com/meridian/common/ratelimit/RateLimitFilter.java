@@ -10,6 +10,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
@@ -24,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Component
-@Order(5)
+@Order(15)
 public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final int DEFAULT_CAPACITY = 120;
@@ -41,6 +42,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper;
 
+    @Value("${app.rate-limit.enabled:true}")
+    private boolean enabled;
+
     public RateLimitFilter(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
@@ -49,6 +53,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
+        if (!enabled) {
+            chain.doFilter(request, response);
+            return;
+        }
         String bucketKey = buildBucketKey(request);
         BandwidthConfig config = resolveConfig(request);
         Bucket bucket = buckets.computeIfAbsent(bucketKey, k -> buildBucket(config));
@@ -91,11 +99,27 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private String getClientIp(HttpServletRequest request) {
-        String xForwardedFor = request.getHeader("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isBlank()) {
-            return xForwardedFor.split(",")[0].trim();
+        String remoteAddr = request.getRemoteAddr();
+        if (isTrustedProxy(remoteAddr)) {
+            String xForwardedFor = request.getHeader("X-Forwarded-For");
+            if (xForwardedFor != null && !xForwardedFor.isBlank()) {
+                return xForwardedFor.split(",")[0].trim();
+            }
         }
-        return request.getRemoteAddr();
+        return remoteAddr;
+    }
+
+    private boolean isTrustedProxy(String addr) {
+        return addr != null && (addr.startsWith("127.") || addr.startsWith("10.")
+                || addr.startsWith("192.168.") || addr.equals("::1")
+                || (addr.startsWith("172.") && isTrustedPrivate172(addr)));
+    }
+
+    private boolean isTrustedPrivate172(String addr) {
+        try {
+            int second = Integer.parseInt(addr.split("\\.")[1]);
+            return second >= 16 && second <= 31;
+        } catch (Exception e) { return false; }
     }
 
     private Bucket buildBucket(BandwidthConfig config) {

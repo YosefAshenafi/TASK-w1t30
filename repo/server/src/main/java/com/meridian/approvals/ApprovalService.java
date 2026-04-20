@@ -8,6 +8,7 @@ import com.meridian.reports.repository.ReportRunRepository;
 import com.meridian.reports.runner.ReportRunner;
 import com.meridian.security.audit.AuditEvent;
 import com.meridian.security.audit.AuditEventRepository;
+import com.meridian.users.AdminUserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -30,6 +31,7 @@ public class ApprovalService {
     private final ReportRunner reportRunner;
     private final NotificationService notificationService;
     private final AuditEventRepository auditEventRepository;
+    private final AdminUserService adminUserService;
 
     @Transactional
     public ApprovalRequest approve(UUID approvalId, UUID reviewerId, String reason) {
@@ -49,6 +51,11 @@ public class ApprovalService {
             for (ReportRun run : runs) {
                 reportRunner.execute(run);
             }
+        } else if (AdminUserService.PERMISSION_CHANGE_TYPE.equals(ar.getType())) {
+            adminUserService.applyApprovedStatusChange(ar.getPayload(), reviewerId);
+            auditEventRepository.save(AuditEvent.of(reviewerId, "PERMISSION_CHANGE_APPROVED",
+                    "APPROVAL", approvalId.toString(),
+                    "{\"payload\":" + safeJson(ar.getPayload()) + "}"));
         }
 
         return ar;
@@ -65,7 +72,7 @@ public class ApprovalService {
 
         auditEventRepository.save(AuditEvent.of(reviewerId, "PERMISSION_CHANGE",
                 "APPROVAL", approvalId.toString(),
-                "{\"action\":\"REJECT\",\"reason\":\"" + reason + "\"}"));
+                "{\"action\":\"REJECT\",\"reason\":\"" + escapeJson(reason) + "\"}"));
 
         notificationService.send(ar.getRequestedBy(), "approval.decided",
                 "{\"type\":\"" + ar.getType() + "\",\"decision\":\"REJECTED\"}");
@@ -100,5 +107,14 @@ public class ApprovalService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Approval is not in PENDING status");
         }
         return ar;
+    }
+
+    private static String escapeJson(String value) {
+        return value == null ? "" : value.replace("\"", "\\\"");
+    }
+
+    private static String safeJson(String payload) {
+        if (payload == null || payload.isBlank()) return "null";
+        return payload;
     }
 }

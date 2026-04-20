@@ -119,7 +119,8 @@ export class LoginComponent implements OnInit {
       },
       error: err => {
         this.loading = false;
-        const code = err.error?.code;
+        const body = err.error?.error ?? err.error ?? {};
+        const code = body.code;
         if (code === 'ACCOUNT_LOCKED') {
           this.errorMessage = 'Account locked after too many failed attempts. Try again in 15 minutes.';
         } else if (code === 'ACCOUNT_SUSPENDED') {
@@ -129,7 +130,7 @@ export class LoginComponent implements OnInit {
         } else if (err.status === 401) {
           this.errorMessage = 'Invalid username or password.';
         } else {
-          this.errorMessage = err.error?.message ?? 'Login failed. Please try again.';
+          this.errorMessage = body.message ?? 'Login failed. Please try again.';
         }
       },
     });

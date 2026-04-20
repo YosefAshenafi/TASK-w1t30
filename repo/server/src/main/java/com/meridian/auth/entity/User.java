@@ -1,5 +1,6 @@
 package com.meridian.auth.entity;
 
+import com.meridian.common.security.AesAttributeConverter;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -25,6 +26,10 @@ public class User {
 
     @Column(name = "display_name", nullable = false)
     private String displayName;
+
+    @Convert(converter = AesAttributeConverter.class)
+    @Column(name = "email")
+    private String email;
 
     @Column(name = "password_bcrypt", nullable = false)
     private String passwordBcrypt;

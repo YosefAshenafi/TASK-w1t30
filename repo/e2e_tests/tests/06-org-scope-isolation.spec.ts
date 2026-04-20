@@ -3,6 +3,12 @@ import { API, apiLogin } from './helpers';
 
 /**
  * Flow 6: Corporate Mentor scope isolation — Org-A mentor cannot see Org-B data.
+ *
+ * Seed fixtures used:
+ *   mentor_org_a   — CORPORATE_MENTOR in MERIDIAN org
+ *   mentor_org_b   — CORPORATE_MENTOR in PARTNER org
+ *   student1       — STUDENT in MERIDIAN org
+ *   student_org_b  — STUDENT in PARTNER org
  */
 test.describe('Organisation scope isolation', () => {
   let mentorAToken: string;
@@ -18,18 +24,17 @@ test.describe('Organisation scope isolation', () => {
     mentorAToken = resA.accessToken;
     mentorBToken = resB.accessToken;
 
-    // Get a student from each org via admin
     const adminRes = await apiLogin(request, 'admin', 'Admin@123!');
     const adminToken = adminRes.accessToken;
 
     const [orgARes, orgBRes] = await Promise.all([
       request.get(`${API}/api/v1/admin/users`, {
         headers: { Authorization: `Bearer ${adminToken}` },
-        params: { orgId: 'org-a-id', role: 'STUDENT', size: 1 },
+        params: { orgCode: 'MERIDIAN', role: 'STUDENT', size: 10 },
       }),
       request.get(`${API}/api/v1/admin/users`, {
         headers: { Authorization: `Bearer ${adminToken}` },
-        params: { orgId: 'org-b-id', role: 'STUDENT', size: 1 },
+        params: { orgCode: 'PARTNER', role: 'STUDENT', size: 10 },
       }),
     ]);
     const orgABody = await orgARes.json();
@@ -38,38 +43,38 @@ test.describe('Organisation scope isolation', () => {
     orgBStudentId = orgBBody.content?.[0]?.id;
   });
 
-  test('6a: Org-A mentor can see Org-A student sessions', async ({ request }) => {
-    if (!orgAStudentId) test.skip();
+  test('6a: Org-A mentor can list sessions for Org-A student', async ({ request }) => {
+    test.skip(!orgAStudentId, 'Seed missing Org-A student');
     const res = await request.get(`${API}/api/v1/sessions`, {
       headers: { Authorization: `Bearer ${mentorAToken}` },
-      params: { studentId: orgAStudentId },
+      params: { learnerId: orgAStudentId },
     });
     expect(res.status()).toBe(200);
   });
 
-  test('6b: Org-A mentor cannot see Org-B student sessions (403)', async ({ request }) => {
-    if (!orgBStudentId) test.skip();
-    const res = await request.get(`${API}/api/v1/sessions`, {
+  test('6b: Org-A mentor cannot see Org-B student analytics (403)', async ({ request }) => {
+    test.skip(!orgBStudentId, 'Seed missing Org-B student');
+    const res = await request.get(`${API}/api/v1/analytics/mastery-trends`, {
       headers: { Authorization: `Bearer ${mentorAToken}` },
-      params: { studentId: orgBStudentId },
+      params: { learnerId: orgBStudentId },
     });
     expect(res.status()).toBe(403);
   });
 
-  test('6c: Org-B mentor cannot see Org-A student sessions (403)', async ({ request }) => {
-    if (!orgAStudentId) test.skip();
-    const res = await request.get(`${API}/api/v1/sessions`, {
+  test('6c: Org-B mentor cannot see Org-A student analytics (403)', async ({ request }) => {
+    test.skip(!orgAStudentId, 'Seed missing Org-A student');
+    const res = await request.get(`${API}/api/v1/analytics/mastery-trends`, {
       headers: { Authorization: `Bearer ${mentorBToken}` },
-      params: { studentId: orgAStudentId },
+      params: { learnerId: orgAStudentId },
     });
     expect(res.status()).toBe(403);
   });
 
-  test('6d: Org-B mentor can see own org students', async ({ request }) => {
-    if (!orgBStudentId) test.skip();
-    const res = await request.get(`${API}/api/v1/sessions`, {
+  test('6d: Org-B mentor can see own org student analytics', async ({ request }) => {
+    test.skip(!orgBStudentId, 'Seed missing Org-B student');
+    const res = await request.get(`${API}/api/v1/analytics/mastery-trends`, {
       headers: { Authorization: `Bearer ${mentorBToken}` },
-      params: { studentId: orgBStudentId },
+      params: { learnerId: orgBStudentId },
     });
     expect(res.status()).toBe(200);
   });

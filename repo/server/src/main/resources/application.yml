@@ -30,6 +30,19 @@ app:
   aes-key-base64: ${AES_KEY_BASE64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
   backup-path: ${BACKUP_PATH:/app/backups}
   export-path: ${EXPORT_PATH:/app/exports}
+  exports:
+    # When true, admins also go through the export approval workflow.
+    # Default is false so admins can run routine exports without
+    # self-approval loops; set to true for regulated environments.
+    admin-approval-required: ${EXPORTS_ADMIN_APPROVAL_REQUIRED:true}
+  recycle-bin:
+    # Days a soft-deleted record is retained in the recycle bin before
+    # the purge job hard-deletes it. 0 disables the purge job.
+    retention-days: ${RECYCLE_BIN_RETENTION_DAYS:14}
+  registration:
+    # Business days (Mon–Fri, weekends excluded) after which PENDING registrations
+    # trigger SLA escalation notifications to admins. 0 disables escalation.
+    sla-business-days: ${REGISTRATION_SLA_BUSINESS_DAYS:2}
 
 ---
 spring:

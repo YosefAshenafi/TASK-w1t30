@@ -8,13 +8,14 @@ import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { BannerComponent } from '../../shared/ui/banner.component';
 import { catchError, of } from 'rxjs';
 
-interface Schedule {
+interface ReportSchedule {
   id: string;
   type: string;
   cronExpr: string;
+  ownerId: string;
   enabled: boolean;
   nextRunAt: string | null;
-  lastRunAt: string | null;
+  createdAt: string | null;
 }
 
 @Component({
@@ -34,12 +35,15 @@ interface Schedule {
 
         <form [formGroup]="form" (ngSubmit)="add()" class="flex flex-wrap gap-3 items-end">
           <div class="flex-1 min-w-36">
-            <app-select label="Report type" [options]="typeOptions" formControlName="type" placeholder="Select…" />
+            <app-select label="Report type" [options]="typeOptions" formControlName="kind" placeholder="Select…" />
           </div>
           <div class="flex flex-col gap-1 min-w-48">
             <label class="text-sm font-medium">Cron expression</label>
             <input formControlName="cronExpr" type="text" placeholder="0 0 1 * * *"
               class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[48px]" />
+          </div>
+          <div class="flex-1 min-w-36">
+            <app-select label="Format" [options]="formatOptions" formControlName="format" placeholder="Select…" />
           </div>
           <app-button type="submit" variant="primary" [loading]="adding" [disabled]="form.invalid">
             Add
@@ -87,7 +91,7 @@ interface Schedule {
 })
 export class SchedulesComponent implements OnInit {
   form: FormGroup;
-  schedules: Schedule[] = [];
+  schedules: ReportSchedule[] = [];
   loading = false;
   adding = false;
   errorMessage = '';
@@ -96,12 +100,21 @@ export class SchedulesComponent implements OnInit {
     { value: 'ENROLLMENTS', label: 'Enrollments' },
     { value: 'SEAT_UTILIZATION', label: 'Seat Utilisation' },
     { value: 'CERT_EXPIRING', label: 'Expiring Certificates' },
+    { value: 'REFUND_RETURN_RATE', label: 'Refund / Return Rate' },
+    { value: 'INVENTORY_LEVELS', label: 'Inventory Levels' },
+  ];
+
+  formatOptions: SelectOption[] = [
+    { value: 'CSV', label: 'CSV' },
+    { value: 'PDF', label: 'PDF' },
+    { value: 'JSON', label: 'JSON' },
   ];
 
   constructor(private fb: FormBuilder, private http: HttpClient) {
     this.form = this.fb.group({
-      type: ['', Validators.required],
+      kind: ['', Validators.required],
       cronExpr: ['0 0 1 * * *', Validators.required],
+      format: ['', Validators.required],
     });
   }
 
@@ -109,7 +122,7 @@ export class SchedulesComponent implements OnInit {
 
   load(): void {
     this.loading = true;
-    this.http.get<{ content: Schedule[] }>('/api/v1/reports/schedules').pipe(
+    this.http.get<{ content: ReportSchedule[] }>('/api/v1/reports/schedules').pipe(
       catchError(() => of({ content: [] }))
     ).subscribe(r => { this.schedules = r.content; this.loading = false; });
   }
@@ -117,7 +130,8 @@ export class SchedulesComponent implements OnInit {
   add(): void {
     if (this.form.invalid || this.adding) return;
     this.adding = true;
-    this.http.post<Schedule>('/api/v1/reports/schedules', this.form.value).pipe(
+    const { kind, cronExpr, format } = this.form.value;
+    this.http.post<ReportSchedule>('/api/v1/reports/schedules', { kind, cronExpr, format }).pipe(
       catchError(err => { this.errorMessage = err.error?.message ?? 'Failed to add schedule.'; return of(null); })
     ).subscribe(s => {
       this.adding = false;
@@ -125,7 +139,7 @@ export class SchedulesComponent implements OnInit {
     });
   }
 
-  toggleEnabled(sched: Schedule): void {
+  toggleEnabled(sched: ReportSchedule): void {
     this.http.put(`/api/v1/reports/schedules/${sched.id}`, { ...sched, enabled: !sched.enabled }).pipe(
       catchError(() => of(null))
     ).subscribe(() => {

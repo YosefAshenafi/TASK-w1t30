@@ -3,6 +3,7 @@ package com.meridian.courses;
 import com.meridian.courses.dto.ActivityDto;
 import com.meridian.courses.dto.ActivityRequest;
 import com.meridian.courses.entity.Activity;
+import com.meridian.courses.entity.Course;
 import com.meridian.courses.repository.ActivityRepository;
 import com.meridian.courses.repository.CourseRepository;
 import com.meridian.governance.ClassificationPolicy;
@@ -27,8 +28,8 @@ public class ActivityController {
     private final ClassificationPolicy classificationPolicy;
 
     @GetMapping
-    public ResponseEntity<List<ActivityDto>> list(@PathVariable UUID courseId) {
-        ensureExists(courseId);
+    public ResponseEntity<List<ActivityDto>> list(@PathVariable UUID courseId, Authentication auth) {
+        requireCanViewCourse(courseId, auth);
         return ResponseEntity.ok(repo.findByCourseIdOrderBySortOrder(courseId).stream()
                 .map(a -> new ActivityDto(a.getId(), a.getCourseId(), a.getName(), a.getDescription(), a.getSortOrder()))
                 .toList());
@@ -41,7 +42,7 @@ public class ActivityController {
         if (!classificationPolicy.canModify(extractRole(auth))) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient role");
         }
-        ensureExists(courseId);
+        requireCanViewCourse(courseId, auth);
         Activity a = new Activity();
         a.setCourseId(courseId);
         a.setName(req.name());
@@ -55,6 +56,15 @@ public class ActivityController {
     private void ensureExists(UUID courseId) {
         if (!courseRepository.existsById(courseId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found");
+        }
+    }
+
+    private void requireCanViewCourse(UUID courseId, Authentication auth) {
+        Course course = courseRepository.findById(courseId)
+                .filter(c -> c.getDeletedAt() == null)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
+        if (!classificationPolicy.canView(course.getClassification(), extractRole(auth))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient classification");
         }
     }
 

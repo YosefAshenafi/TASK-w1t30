@@ -63,8 +63,8 @@ function uuidv7(): string {
           <input
             formControlName="restSecondsDefault"
             type="number"
-            min="0"
-            max="600"
+            min="15"
+            max="300"
             class="border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--color-brand-500)] min-h-[48px]" />
         </div>
 
@@ -95,7 +95,7 @@ export class SessionNewComponent implements OnInit, OnDestroy {
     this.form = this.fb.group({
       courseId: ['', Validators.required],
       cohortId: [''],
-      restSecondsDefault: [60, [Validators.required, Validators.min(0), Validators.max(600)]],
+      restSecondsDefault: [60, [Validators.required, Validators.min(15), Validators.max(300)]],
     });
   }
 
