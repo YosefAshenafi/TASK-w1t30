@@ -1,0 +1,13 @@
+.env
+nginx/certs/
+*.class
+*.jar
+*.war
+target/
+.mvn/repository/
+web/node_modules/
+web/dist/
+.angular/
+*.iml
+.idea/
+.DS_Store
