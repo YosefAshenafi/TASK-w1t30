@@ -35,11 +35,27 @@ class OrgScopeApiTest {
     @Order(1)
     @WithMockUser(username = OTHER_STUDENT, roles = "STUDENT")
     void student_cannotListOtherStudentSessions() throws Exception {
-        // With studentId filter scoped to self, other student's sessions are not returned
-        mockMvc.perform(get("/api/v1/sessions?size=50"))
+        // Sessions are scoped to the authenticated student — no foreign student IDs may appear
+        mockMvc.perform(get("/api/v1/sessions?size=100"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.content").isArray());
-        // The returned sessions all belong to the authenticated student (tested by session creation ownership)
+            .andExpect(jsonPath("$.content").isArray())
+            // STUDENT_USER's sessions must never appear in OTHER_STUDENT's results
+            .andExpect(jsonPath("$.content[?(@.studentId == '" + STUDENT_USER + "')]").isEmpty());
+    }
+
+    @Test
+    @Order(1)
+    @WithMockUser(username = OTHER_STUDENT, roles = "STUDENT")
+    void student_cannotAccessForeignSessionById() throws Exception {
+        // A session owned by a different student must not be readable by another student
+        mockMvc.perform(get("/api/v1/sessions/" + SESSION_ID))
+            .andExpect(result -> {
+                int status = result.getResponse().getStatus();
+                if (status != 403 && status != 404) {
+                    throw new AssertionError(
+                        "Expected 403 or 404 accessing foreign session, but got " + status);
+                }
+            });
     }
 
     @Test

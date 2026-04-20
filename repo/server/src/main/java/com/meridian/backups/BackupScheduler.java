@@ -71,9 +71,7 @@ public class BackupScheduler {
 
     private void enforceRetention(int retentionDays) {
         Instant cutoff = Instant.now().minus(retentionDays, ChronoUnit.DAYS);
-        List<BackupRun> old = backupRunRepository.findAll().stream()
-                .filter(r -> r.getStartedAt() != null && r.getStartedAt().isBefore(cutoff))
-                .toList();
+        List<BackupRun> old = backupRunRepository.findByStartedAtNotNullAndStartedAtBefore(cutoff);
         if (!old.isEmpty()) {
             for (BackupRun r : old) {
                 if (r.getFilePath() != null) {

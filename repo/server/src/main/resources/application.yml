@@ -81,6 +81,7 @@ spring:
     driver-class-name: org.postgresql.Driver
   flyway:
     locations: classpath:db/migration,classpath:db/migration/local
+    out-of-order: true
 
 ---
 spring:

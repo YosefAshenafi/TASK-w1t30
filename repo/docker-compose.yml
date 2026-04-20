@@ -63,17 +63,22 @@ services:
     build:
       context: ./nginx
       dockerfile: Dockerfile
+    environment:
+      MERIDIAN_HTTPS_PORT: ${MERIDIAN_HTTPS_PORT:-8443}
     ports:
-      # Default 8080 avoids port-80 conflicts (e.g. macOS AirPlay / other listeners).
+      # HTTP (redirect only) — default 8080 avoids port-80 conflicts.
       # Override: MERIDIAN_HTTP_PORT=80 docker compose up -d
       - "${MERIDIAN_HTTP_PORT:-8080}:80"
+      # HTTPS with self-signed certificate — default 8443.
+      # Override: MERIDIAN_HTTPS_PORT=443 docker compose up -d
+      - "${MERIDIAN_HTTPS_PORT:-8443}:443"
     depends_on:
       server:
         condition: service_healthy
       web:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost/ || exit 1"]
+      test: ["CMD-SHELL", "curl -fsSk https://localhost/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

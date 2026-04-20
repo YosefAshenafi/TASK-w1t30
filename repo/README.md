@@ -10,10 +10,10 @@ Meridian is an on-premise training analytics and management platform that enable
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | Angular 18 (TypeScript) |
+| Frontend | Angular 17.3 (TypeScript) |
 | Backend | Spring Boot 3.3 (Java 17) |
 | Database | PostgreSQL 16 |
-| Reverse proxy | nginx 1.25 (HTTP; default **:8080** on the host in Docker) |
+| Reverse proxy | nginx 1.25 (HTTPS on **:8443**, HTTP→HTTPS redirect on **:8080** by default in Docker) |
 | Migrations | Flyway |
 | Runtime | Docker Compose |
 
@@ -38,58 +38,62 @@ docker compose up -d
 
 Docker Compose pulls/builds images as needed. The first run can take several minutes (Maven, Angular, images).
 
-The UI is served on **plain HTTP** at **`http://localhost:8080/`** (see `MERIDIAN_HTTP_PORT` in `.env`). No browser TLS warnings. Use HTTPS only in production behind a real certificate.
+The UI is served over **HTTPS** (self-signed certificate) at **`https://localhost:8443/`** (see `MERIDIAN_HTTPS_PORT` in `.env`). HTTP on port 8080 redirects automatically to HTTPS. Your browser will show a one-time certificate warning for the self-signed cert — click "Advanced → Proceed" to continue.
 
-> **URLs:** Open **`http://localhost:8080/`** — not `https://` (nothing listens on 443). If you use port **80** instead, set `MERIDIAN_HTTP_PORT=80` in `.env` and use `http://localhost/`.
+> **URLs:** Open **`https://localhost:8443/`** (default). To use port 443, set `MERIDIAN_HTTPS_PORT=443` in `.env`. The HTTP port (`MERIDIAN_HTTP_PORT`, default `8080`) redirects to HTTPS and is not needed directly.
 
 ## Accessing the Application
 
 | URL | Description |
 |-----|-------------|
-| `http://localhost:8080/` | Angular SPA (default) |
-| `http://localhost:8080/api/v1/health` | Server health check |
-| `http://localhost:8080/api/*` | REST API (proxied by nginx) |
+| `https://localhost:8443/` | Angular SPA (HTTPS, default) |
+| `https://localhost:8443/api/v1/health` | Server health check |
+| `https://localhost:8443/api/*` | REST API (proxied by nginx) |
+| `http://localhost:8080/` | HTTP — redirects to HTTPS automatically |
 
 ## Verifying It Works
 
 ```bash
 # 1. Health check — expects {"status":"UP","version":"0.0.1-SNAPSHOT"}
-curl -s http://localhost:8080/api/v1/health
+curl -sk https://localhost:8443/api/v1/health
 
 # 2. Log in as admin and capture the access token
-TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login \
+TOKEN=$(curl -sk -X POST https://localhost:8443/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"Admin@123!","deviceFingerprint":"cli-verify"}' \
   | grep -o '"accessToken":"[^"]*"' | cut -d'"' -f4)
 
 # 3. Fetch the authenticated user profile — expects JSON with "username":"admin"
-curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/users/me
+curl -sk -H "Authorization: Bearer $TOKEN" https://localhost:8443/api/v1/users/me
 ```
 
+> **Note:** `-k` skips TLS certificate verification for the self-signed local certificate. In production use a trusted certificate and remove `-k`.
+
 **UI smoke check:**
-1. Open `http://localhost:8080/` in your browser.
-2. Log in with `admin` / `Admin@123!`.
-3. Confirm the dashboard loads and shows navigation items (Users, Sessions, Reports, Analytics, etc.).
+1. Open `https://localhost:8443/` in your browser.
+2. Accept the self-signed certificate warning (click "Advanced → Proceed to localhost").
+3. Log in with `admin` / `Admin@123!`.
+4. Confirm the dashboard loads and shows navigation items (Users, Sessions, Reports, Analytics, etc.).
 
 ## If you see “connection refused” (ERR_CONNECTION_REFUSED)
 
-1. **Confirm the URL** includes the port: **`http://localhost:8080/`** (default), not `https://` and not plain `http://localhost/` unless you set `MERIDIAN_HTTP_PORT=80`.
+1. **Confirm the URL** is HTTPS with the correct port: **`https://localhost:8443/`** (default).
 2. **Confirm Docker is running** and containers are up:
    ```bash
    docker compose ps
    ```
-   You should see `repo-nginx-1` **Up** with **`0.0.0.0:8080->80/tcp`** (or your chosen port).
+   You should see `repo-nginx-1` **Up** with **`0.0.0.0:8443->443/tcp`** (and `0.0.0.0:8080->80/tcp` for redirect).
 3. **Start or restart the stack** from the `repo` directory:
    ```bash
    docker compose up -d
    ```
-4. **Try IPv4 explicitly:** `http://127.0.0.1:8080/`
-5. If port **8080** is already in use on your machine, pick another port in `.env`:
+4. **Try IPv4 explicitly:** `https://127.0.0.1:8443/`
+5. If port **8443** is already in use on your machine, pick another port in `.env`:
    ```bash
-   echo 'MERIDIAN_HTTP_PORT=9080' >> .env
+   echo 'MERIDIAN_HTTPS_PORT=9443' >> .env
    docker compose up -d
    ```
-   Then open `http://localhost:9080/`.
+   Then open `https://localhost:9443/`.
 
 ## If `docker compose build` fails on `npm ci` (ECONNRESET / network)
 
@@ -115,10 +119,10 @@ All accounts are seeded automatically on first boot via Flyway migrations.
 
 ## Running the Tests
 
-All primary test commands run inside Docker — no local Maven or Node installation required.
+All test classes live natively in `server/src/test/java/com/meridian/` and `web/src/app/**/*.spec.ts`. All primary test commands run inside Docker — no local Maven or Node installation required.
 
 ```bash
-# Server unit tests + API integration tests (runs inside the server dev container)
+# Server unit tests + API integration tests (all classes in server/src/test/java — no copy step needed)
 docker compose run --rm server ./mvnw test --no-transfer-progress
 
 # Web unit tests
@@ -128,6 +132,7 @@ docker run --rm \
   "npm ci --legacy-peer-deps --silent && npm test -- --watch=false --browsers=ChromeHeadlessCI"
 
 # E2E tests — requires the full stack to be running first (docker compose up -d)
+# API_URL defaults to https://localhost:8443; pass -k/--ignore-https-errors for the self-signed cert
 docker run --rm \
   -v "$(pwd)/e2e_tests:/app" -w /app \
   --network host \
@@ -143,7 +148,7 @@ docker run --rm \
 repo/
 ├── server/           Spring Boot API (Java 17, Maven)
 ├── web/              Angular SPA (TypeScript)
-├── nginx/            Reverse-proxy config (HTTP for local dev)
+├── nginx/            Reverse-proxy config (HTTPS with self-signed cert for local dev)
 ├── scripts/          Utility shell scripts
 ├── api_tests/        MockMvc-based API integration tests
 ├── unit_tests/       Backend (JUnit) and frontend (Jasmine) unit tests
@@ -154,7 +159,8 @@ repo/
 ```
 
 ```
-host :8080 (default) → nginx :80
+host :8080 (HTTP)  → nginx :80  → 301 redirect to https://localhost:8443/
+host :8443 (HTTPS) → nginx :443
  ├── /api/*  → server (Spring Boot :8080 inside the network)
  └── /*      → web (Angular static nginx :80)
 ```
@@ -165,7 +171,8 @@ Copy `.env.example` to `.env` and edit as needed. All variables have sensible de
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `MERIDIAN_HTTP_PORT` | Host port mapped to nginx (UI + `/api`) | `8080` |
+| `MERIDIAN_HTTP_PORT` | Host port for HTTP→HTTPS redirect | `8080` |
+| `MERIDIAN_HTTPS_PORT` | Host port for HTTPS (self-signed TLS) | `8443` |
 | `DB_NAME` | PostgreSQL database name | `meridian` |
 | `DB_USERNAME` | PostgreSQL user | `meridian` |
 | `DB_PASSWORD` | PostgreSQL password | `meridian_secret` |
@@ -201,7 +208,7 @@ There is no automatic re-encryption on startup — rotation is intentionally man
 
 ## Known Limitations
 
-- The default Docker setup uses **HTTP** for convenience. Production deployments should terminate **HTTPS** at a load balancer or reverse proxy with a trusted certificate.
-- API integration tests use `MockMvc` (HTTP-like, not real network transport) and mock the security principal via `@WithMockUser` in several suites.
-- E2E tests default `API_URL` to `http://localhost:8080`; align that with your `MERIDIAN_HTTP_PORT` or set `API_URL` when the API is only reachable via the nginx proxy port.
+- The local Docker setup uses a **self-signed TLS certificate** (generated at image build time). Browsers will show a one-time warning; click "Advanced → Proceed" to continue. Production deployments should replace this with a certificate from a trusted CA.
+- API integration tests use `MockMvc` (HTTP-like, not real network transport) and mock the security principal via `@WithMockUser` in several suites. All test classes are in `server/src/test/java/com/meridian/` and run with `./mvnw test`.
+- E2E tests default `API_URL` to `https://localhost:8443`; align that with your `MERIDIAN_HTTPS_PORT` or set `API_URL` when the API is only reachable via the nginx proxy port.
 - Backup and recovery-drill features invoke `pg_dump`/`pg_restore` inside the server container; no external backup storage is wired in the default setup.

@@ -1,6 +1,6 @@
 import { Page, APIRequestContext } from '@playwright/test';
 
-export const API = process.env['API_URL'] ?? 'http://localhost:8080';
+export const API = process.env['API_URL'] ?? 'https://localhost:8443';
 
 export async function apiLogin(request: APIRequestContext, username: string, password: string) {
   const res = await request.post(`${API}/api/v1/auth/login`, {

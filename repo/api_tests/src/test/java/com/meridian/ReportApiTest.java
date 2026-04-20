@@ -185,18 +185,34 @@ class ReportApiTest {
     @Order(10)
     @WithMockUser(username = OWNER_USER, roles = "FACULTY_MENTOR")
     void listReports_returnsOnlyOwnRuns() throws Exception {
+        // List must contain only runs belonging to the authenticated user
         mockMvc.perform(get(REPORTS_URL))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.content").isArray());
+            .andExpect(jsonPath("$.content").isArray())
+            // No run owned by OTHER_USER should appear in OWNER_USER's list
+            .andExpect(jsonPath("$.content[?(@.requestedBy == '" + OTHER_USER + "')]").isEmpty());
     }
 
     @Test
     @Order(11)
     @WithMockUser(username = OWNER_USER, roles = "ADMIN")
     void adminListReports_returnsAllRuns() throws Exception {
+        // Admin can list all runs and the list must be non-empty given prior create calls
         mockMvc.perform(get(REPORTS_URL))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.content").isArray());
+            .andExpect(jsonPath("$.content").isArray())
+            .andExpect(jsonPath("$.content.length()").value(org.hamcrest.Matchers.greaterThan(0)));
+    }
+
+    @Test
+    @Order(10)
+    @WithMockUser(username = OTHER_USER, roles = "FACULTY_MENTOR")
+    void otherUser_cannotAccessOwnersReport_returns403() throws Exception {
+        if (createdRunId == null) return;
+        // Accessing a specific report owned by a different user must be denied
+        mockMvc.perform(get(REPORTS_URL + "/" + createdRunId))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.error.message").exists());
     }
 
     @Test

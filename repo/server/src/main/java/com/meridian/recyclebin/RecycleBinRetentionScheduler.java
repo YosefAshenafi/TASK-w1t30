@@ -42,9 +42,7 @@ public class RecycleBinRetentionScheduler {
         }
         Instant cutoff = Instant.now().minus(retentionDays, ChronoUnit.DAYS);
 
-        List<Course> expiredCourses = courseRepository.findAll().stream()
-                .filter(c -> c.getDeletedAt() != null && c.getDeletedAt().isBefore(cutoff))
-                .toList();
+        List<Course> expiredCourses = courseRepository.findSoftDeletedBefore(cutoff);
         for (Course c : expiredCourses) {
             courseRepository.deleteById(c.getId());
             auditEventRepository.save(AuditEvent.of(null, "RECYCLE_BIN_PURGE",
@@ -52,9 +50,7 @@ public class RecycleBinRetentionScheduler {
                     "{\"retentionDays\":" + retentionDays + "}"));
         }
 
-        List<User> expiredUsers = userRepository.findAll().stream()
-                .filter(u -> u.getDeletedAt() != null && u.getDeletedAt().isBefore(cutoff))
-                .toList();
+        List<User> expiredUsers = userRepository.findSoftDeletedBefore(cutoff);
         for (User u : expiredUsers) {
             userRepository.deleteById(u.getId());
             auditEventRepository.save(AuditEvent.of(null, "RECYCLE_BIN_PURGE",

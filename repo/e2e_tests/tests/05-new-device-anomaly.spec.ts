@@ -34,6 +34,14 @@ test.describe('New device anomaly detection', () => {
     expect(res.status()).toBe(200);
     const body = await res.json();
     expect(Array.isArray(body.content)).toBe(true);
+
+    // Verify the specific NEW_DEVICE anomaly for our test fingerprint is present
+    const matchingAnomaly = body.content.find(
+      (a: { type: string; details?: string }) =>
+        a.type === 'NEW_DEVICE' &&
+        (a.details ?? '').includes('completely-unknown-device-fp-12345'),
+    );
+    expect(matchingAnomaly).toBeTruthy();
   });
 
   test('5c: admin notification for anomaly appears in inbox', async ({ request }) => {

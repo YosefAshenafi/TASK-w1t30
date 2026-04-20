@@ -7,7 +7,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 public interface CourseRepository extends JpaRepository<Course, UUID> {
@@ -28,4 +30,10 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
                               @Param("classifications") Collection<String> classifications,
                               @Param("q") String q,
                               Pageable pageable);
+
+    @Query("SELECT c FROM Course c WHERE c.deletedAt IS NOT NULL ORDER BY c.deletedAt DESC")
+    Page<Course> findSoftDeleted(Pageable pageable);
+
+    @Query("SELECT c FROM Course c WHERE c.deletedAt IS NOT NULL AND c.deletedAt < :cutoff")
+    List<Course> findSoftDeletedBefore(@Param("cutoff") Instant cutoff);
 }
