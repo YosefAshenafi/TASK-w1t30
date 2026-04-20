@@ -1,5 +1,7 @@
 package com.meridian.auth;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.meridian.auth.dto.*;
 import com.meridian.auth.entity.RefreshToken;
 import com.meridian.auth.entity.User;
@@ -47,6 +49,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final DeviceFingerprintService deviceFingerprintService;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public RegisterResponse register(RegisterRequest req) {
@@ -173,8 +176,8 @@ public class AuthService {
     }
 
     private void auditLogin(String action, UUID userId, String clientIp) {
-        AuditEvent event = AuditEvent.of(userId, action, "USER", userId.toString(),
-                "{\"ip\":\"" + (clientIp != null ? clientIp : "") + "\"}");
+        String details = toJson(Map.of("ip", clientIp != null ? clientIp : ""));
+        AuditEvent event = AuditEvent.of(userId, action, "USER", userId.toString(), details);
         event.setIpAddress(clientIp);
         // Publish in REQUIRES_NEW so the audit trail survives a rolled-back
         // authentication transaction (e.g. bad password -> 401 rollback).
@@ -188,9 +191,9 @@ public class AuthService {
         boolean allowed = allowedIpRangeRepository.isIpAllowed(clientIp, user.getRole());
         if (!allowed) {
             anomalyEventRepository.save(AnomalyEvent.of(user.getId(), "IP_OUT_OF_RANGE", clientIp,
-                    "{\"role\":\"" + user.getRole() + "\"}"));
+                    toJson(Map.of("role", user.getRole()))));
             notificationService.send(user.getId(), "anomaly.ipOutOfRange",
-                    "{\"ip\":\"" + clientIp + "\"}");
+                    toJson(Map.of("ip", clientIp != null ? clientIp : "")));
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "IP_NOT_ALLOWED");
         }
     }
@@ -220,6 +223,15 @@ public class AuthService {
                 user.getLastLoginAt(),
                 user.getCreatedAt()
         );
+    }
+
+    private String toJson(Map<String, Object> data) {
+        try {
+            return objectMapper.writeValueAsString(data);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize audit payload", e);
+            return "{}";
+        }
     }
 
     private static String sha256(String input) {

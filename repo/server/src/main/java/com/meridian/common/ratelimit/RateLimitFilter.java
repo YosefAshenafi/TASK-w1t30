@@ -10,7 +10,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
@@ -20,40 +19,45 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
 @Order(15)
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    private static final int DEFAULT_CAPACITY = 120;
-    private static final int DEFAULT_REFILL_SECONDS = 60;
+    private static final int MAX_BUCKETS = 50_000;
 
-    private static final Map<String, BandwidthConfig> ENDPOINT_LIMITS = Map.of(
-            "POST:/api/v1/auth/login", new BandwidthConfig(10, 60),
-            "POST:/api/v1/auth/register", new BandwidthConfig(5, 60),
-            "POST:/api/v1/reports", new BandwidthConfig(30, 60),
-            "POST:/api/v1/reports/schedules", new BandwidthConfig(30, 60),
-            "POST:/api/v1/sessions/sync", new BandwidthConfig(60, 60)
-    );
+    @SuppressWarnings("unchecked")
+    private final Map<String, Bucket> buckets = Collections.synchronizedMap(
+            new LinkedHashMap<String, Bucket>(MAX_BUCKETS, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, Bucket> eldest) {
+                    return size() > MAX_BUCKETS;
+                }
+            });
 
-    private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper;
+    private final RateLimitProperties props;
+    private final Map<String, BandwidthConfig> endpointLimits;
 
-    @Value("${app.rate-limit.enabled:true}")
-    private boolean enabled;
-
-    public RateLimitFilter(ObjectMapper objectMapper) {
+    public RateLimitFilter(ObjectMapper objectMapper, RateLimitProperties props) {
         this.objectMapper = objectMapper;
+        this.props = props;
+        this.endpointLimits = props.getLimits().stream()
+                .collect(Collectors.toMap(
+                        RateLimitProperties.EndpointLimit::key,
+                        l -> new BandwidthConfig(l.getCapacity(), l.getRefillSeconds())));
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
-        if (!enabled) {
+        if (!props.isEnabled()) {
             chain.doFilter(request, response);
             return;
         }
@@ -78,7 +82,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private String buildBucketKey(HttpServletRequest request) {
         String endpointKey = request.getMethod() + ":" + request.getRequestURI();
         String userOrIp = resolveUserOrIpKey(request);
-        if (ENDPOINT_LIMITS.containsKey(endpointKey)) {
+        if (endpointLimits.containsKey(endpointKey)) {
             return endpointKey + ":" + userOrIp;
         }
         return "default:" + userOrIp;
@@ -86,8 +90,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private BandwidthConfig resolveConfig(HttpServletRequest request) {
         String endpointKey = request.getMethod() + ":" + request.getRequestURI();
-        return ENDPOINT_LIMITS.getOrDefault(endpointKey,
-                new BandwidthConfig(DEFAULT_CAPACITY, DEFAULT_REFILL_SECONDS));
+        return endpointLimits.getOrDefault(endpointKey,
+                new BandwidthConfig(props.getDefaultCapacity(), props.getDefaultRefillSeconds()));
     }
 
     private String resolveUserOrIpKey(HttpServletRequest request) {

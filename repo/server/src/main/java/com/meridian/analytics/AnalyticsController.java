@@ -91,6 +91,7 @@ public class AnalyticsController {
             @RequestParam(required = false) String to,
             @RequestParam(required = false) UUID courseId,
             @RequestParam(required = false) UUID cohortId,
+            @RequestParam(required = false) UUID learnerId,
             @RequestParam(required = false) UUID locationId,
             @RequestParam(required = false) UUID instructorId,
             @RequestParam(required = false) String courseVersion,
@@ -100,7 +101,8 @@ public class AnalyticsController {
         UUID orgFilter = "CORPORATE_MENTOR".equals(principal.role())
                 ? requireOrgScope(principal)
                 : null;
-        AnalyticsFilter filter = buildFilter(from, to, courseId, cohortId, null,
+        enforceOrgScope(learnerId, auth);
+        AnalyticsFilter filter = buildFilter(from, to, courseId, cohortId, learnerId,
                 locationId, instructorId, courseVersion, orgFilter);
         return ResponseEntity.ok(analyticsService.itemStats(filter));
     }

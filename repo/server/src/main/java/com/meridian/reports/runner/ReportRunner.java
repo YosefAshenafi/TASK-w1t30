@@ -104,7 +104,7 @@ public class ReportRunner {
         return switch (run.getType()) {
             case "ENROLLMENTS" -> {
                 List<Map<String, Object>> rows = jdbc.queryForList("""
-                        SELECT e.id, u.username, u.display_name, c.name AS cohort_name,
+                        SELECT e.id, u.username, u.display_name, u.email, c.name AS cohort_name,
                                co.code AS course_code, e.enrolled_at, e.refunded_at
                         FROM enrollments e
                         JOIN users u ON u.id = e.student_id
@@ -114,7 +114,7 @@ public class ReportRunner {
                           AND (CAST(:orgId AS uuid) IS NULL OR e.organization_id = CAST(:orgId AS uuid))
                         LIMIT 50000
                         """, params);
-                yield canUnmask ? rows : maskRows(rows, "username", "display_name");
+                yield canUnmask ? rows : maskRows(rows, "username", "display_name", "email");
             }
             case "SEAT_UTILIZATION" -> jdbc.queryForList("""
                     SELECT c.id, c.name, co.code, c.total_seats,
@@ -134,7 +134,8 @@ public class ReportRunner {
                 int days = resolveCertWindow(run.getParameters());
                 params.addValue("days", days);
                 List<Map<String, Object>> rows = jdbc.queryForList("""
-                        SELECT cert.id, u.username, co.code, cert.issued_at, cert.expires_at
+                        SELECT cert.id, u.username, u.display_name, u.email, co.code,
+                               cert.issued_at, cert.expires_at
                         FROM certifications cert
                         JOIN users u ON u.id = cert.student_id
                         JOIN courses co ON co.id = cert.course_id
@@ -142,7 +143,7 @@ public class ReportRunner {
                           AND (CAST(:orgId AS uuid) IS NULL OR u.organization_id = CAST(:orgId AS uuid))
                         ORDER BY cert.expires_at
                         """, params);
-                yield canUnmask ? rows : maskRows(rows, "username");
+                yield canUnmask ? rows : maskRows(rows, "username", "display_name", "email");
             }
             case "REFUND_RETURN_RATE" -> jdbc.queryForList("""
                     SELECT
@@ -191,10 +192,7 @@ public class ReportRunner {
             for (String field : fields) {
                 Object val = copy.get(field);
                 if (val != null) {
-                    String masked = "display_name".equals(field)
-                            ? maskingPolicy.maskDisplayName(val.toString())
-                            : maskingPolicy.maskUsername(val.toString());
-                    copy.put(field, masked);
+                    copy.put(field, maskingPolicy.maskField(field, val.toString()));
                 }
             }
             return (Map<String, Object>) copy;

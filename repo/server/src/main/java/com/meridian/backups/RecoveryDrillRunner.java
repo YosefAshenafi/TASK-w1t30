@@ -116,8 +116,15 @@ public class RecoveryDrillRunner {
 
     private void dropDrillDbQuietly(String db) {
         try {
-            new ProcessBuilder("psql", "-U", "meridian", "-c", "DROP DATABASE IF EXISTS " + db + ";")
-                    .start().waitFor();
+            String host = extractHost(datasourceUrl);
+            String port = extractPort(datasourceUrl);
+            String user = System.getenv("DB_USERNAME") != null ? System.getenv("DB_USERNAME") :
+                          System.getenv("DB_USER") != null ? System.getenv("DB_USER") : "meridian";
+            String pgPassword = System.getenv("DB_PASSWORD") != null ? System.getenv("DB_PASSWORD") : "meridian_secret";
+            ProcessBuilder pb = new ProcessBuilder("psql", "-h", host, "-p", port, "-U", user, "-c",
+                    "DROP DATABASE IF EXISTS " + db + ";");
+            pb.environment().put("PGPASSWORD", pgPassword);
+            pb.start().waitFor();
         } catch (Exception ignored) {}
     }
 

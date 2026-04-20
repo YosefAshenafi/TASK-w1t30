@@ -5,6 +5,7 @@ import com.meridian.sessions.dto.SyncResult;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,6 +21,7 @@ public class SessionSyncController {
 
     private final SyncResolver syncResolver;
 
+    @PreAuthorize("hasRole('STUDENT')")
     @PostMapping
     public ResponseEntity<SyncResult> sync(@Valid @RequestBody SyncRequest req, Authentication auth) {
         UUID userId = UUID.fromString(auth.getName());

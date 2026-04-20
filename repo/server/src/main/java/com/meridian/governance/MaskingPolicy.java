@@ -56,6 +56,28 @@ public class MaskingPolicy {
         return canUnmask ? value : maskUsername(value);
     }
 
+    public String maskPhone(String phone) {
+        if (phone == null || phone.isBlank()) return phone;
+        String digits = phone.replaceAll("[^0-9+]", "");
+        if (digits.length() <= 4) return "***";
+        return digits.substring(0, 2) + "***" + digits.substring(digits.length() - 2);
+    }
+
+    /**
+     * Applies the appropriate masking strategy based on the column/field name.
+     * Centralises the field-level masking matrix so all export/serialization
+     * paths stay consistent.
+     */
+    public String maskField(String fieldName, String value) {
+        if (value == null) return null;
+        return switch (fieldName.toLowerCase()) {
+            case "email" -> maskEmail(value);
+            case "display_name", "displayname", "full_name", "fullname" -> maskDisplayName(value);
+            case "phone", "phone_number", "phonenumber", "mobile" -> maskPhone(value);
+            default -> maskUsername(value);
+        };
+    }
+
     private String maskWord(String word) {
         if (word.length() <= 1) return word;
         return word.charAt(0) + "***";

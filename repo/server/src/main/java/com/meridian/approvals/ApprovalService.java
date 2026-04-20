@@ -1,5 +1,7 @@
 package com.meridian.approvals;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.meridian.approvals.entity.ApprovalRequest;
 import com.meridian.approvals.repository.ApprovalRequestRepository;
 import com.meridian.notifications.NotificationService;
@@ -19,6 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -32,6 +35,7 @@ public class ApprovalService {
     private final NotificationService notificationService;
     private final AuditEventRepository auditEventRepository;
     private final AdminUserService adminUserService;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public ApprovalRequest approve(UUID approvalId, UUID reviewerId, String reason) {
@@ -43,7 +47,7 @@ public class ApprovalService {
         approvalRepository.save(ar);
 
         notificationService.send(ar.getRequestedBy(), "approval.decided",
-                "{\"type\":\"" + ar.getType() + "\",\"decision\":\"APPROVED\"}");
+                toJson(Map.of("type", ar.getType(), "decision", "APPROVED")));
 
         if ("EXPORT".equals(ar.getType())) {
             List<ReportRun> runs = reportRunRepository.findAllByApprovalRequestIdAndStatus(
@@ -55,7 +59,7 @@ public class ApprovalService {
             adminUserService.applyApprovedStatusChange(ar.getPayload(), reviewerId);
             auditEventRepository.save(AuditEvent.of(reviewerId, "PERMISSION_CHANGE_APPROVED",
                     "APPROVAL", approvalId.toString(),
-                    "{\"payload\":" + safeJson(ar.getPayload()) + "}"));
+                    toJsonWithRawPayload(ar.getPayload())));
         }
 
         return ar;
@@ -70,12 +74,12 @@ public class ApprovalService {
         ar.setDecidedAt(Instant.now());
         approvalRepository.save(ar);
 
-        auditEventRepository.save(AuditEvent.of(reviewerId, "PERMISSION_CHANGE",
+        auditEventRepository.save(AuditEvent.of(reviewerId, "PERMISSION_CHANGE_REJECTED",
                 "APPROVAL", approvalId.toString(),
-                "{\"action\":\"REJECT\",\"reason\":\"" + escapeJson(reason) + "\"}"));
+                toJson(Map.of("action", "REJECT", "reason", reason != null ? reason : ""))));
 
         notificationService.send(ar.getRequestedBy(), "approval.decided",
-                "{\"type\":\"" + ar.getType() + "\",\"decision\":\"REJECTED\"}");
+                toJson(Map.of("type", ar.getType(), "decision", "REJECTED")));
 
         if ("EXPORT".equals(ar.getType())) {
             List<ReportRun> runs = reportRunRepository.findAllByApprovalRequestIdAndStatus(
@@ -109,12 +113,27 @@ public class ApprovalService {
         return ar;
     }
 
-    private static String escapeJson(String value) {
-        return value == null ? "" : value.replace("\"", "\\\"");
+    private String toJson(Map<String, Object> data) {
+        try {
+            return objectMapper.writeValueAsString(data);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize audit payload", e);
+            return "{}";
+        }
     }
 
-    private static String safeJson(String payload) {
-        if (payload == null || payload.isBlank()) return "null";
-        return payload;
+    private String toJsonWithRawPayload(String payload) {
+        try {
+            com.fasterxml.jackson.databind.node.ObjectNode node = objectMapper.createObjectNode();
+            if (payload != null && !payload.isBlank()) {
+                node.set("payload", objectMapper.readTree(payload));
+            } else {
+                node.putNull("payload");
+            }
+            return objectMapper.writeValueAsString(node);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize approval payload", e);
+            return "{}";
+        }
     }
 }

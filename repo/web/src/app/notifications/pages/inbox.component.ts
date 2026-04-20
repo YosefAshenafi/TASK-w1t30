@@ -159,6 +159,7 @@ export class InboxComponent implements OnInit, OnDestroy {
       INFO: 'bg-sky-400',
       WARN: 'bg-amber-400',
       ERROR: 'bg-red-500',
+      CRITICAL: 'bg-red-700',
     };
     return map[severity] ?? 'bg-gray-400';
   }

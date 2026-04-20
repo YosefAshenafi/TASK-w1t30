@@ -43,6 +43,31 @@ app:
     # Business days (Mon–Fri, weekends excluded) after which PENDING registrations
     # trigger SLA escalation notifications to admins. 0 disables escalation.
     sla-business-days: ${REGISTRATION_SLA_BUSINESS_DAYS:2}
+  rate-limit:
+    enabled: true
+    default-capacity: 120
+    default-refill-seconds: 60
+    limits:
+      - method: POST
+        path: /api/v1/auth/login
+        capacity: 10
+        refill-seconds: 60
+      - method: POST
+        path: /api/v1/auth/register
+        capacity: 5
+        refill-seconds: 60
+      - method: POST
+        path: /api/v1/reports
+        capacity: 30
+        refill-seconds: 60
+      - method: POST
+        path: /api/v1/reports/schedules
+        capacity: 30
+        refill-seconds: 60
+      - method: POST
+        path: /api/v1/sessions/sync
+        capacity: 60
+        refill-seconds: 60
 
 ---
 spring:

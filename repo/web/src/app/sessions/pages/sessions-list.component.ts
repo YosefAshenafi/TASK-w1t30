@@ -44,20 +44,26 @@ interface SessionRow {
         </div>
       } @else {
         <div class="flex flex-col gap-3">
-          @for (session of sessions; track session.id) {
-            <a
-              [routerLink]="['/sessions', session.id, 'run']"
-              class="flex items-center justify-between bg-[var(--color-surface-raised)] border border-[var(--color-border)] rounded-xl px-5 py-4 hover:border-[var(--color-brand-500)] transition-colors min-h-0">
-              <div>
+          @for (session of sortedSessions(); track session.id) {
+            <div class="flex items-center justify-between bg-[var(--color-surface-raised)] border border-[var(--color-border)] rounded-xl px-5 py-4 hover:border-[var(--color-brand-500)] transition-colors min-h-0">
+              <a [routerLink]="['/sessions', session.id, 'run']" class="flex-1 min-w-0">
                 <p class="font-medium text-sm">Session {{ session.id.slice(-8) }}</p>
                 <p class="text-xs text-[var(--color-text-muted)] mt-0.5">
                   Started {{ formatDate(session.startedAt) }}
                 </p>
+              </a>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                @if (session.status === 'IN_PROGRESS' || session.status === 'PAUSED') {
+                  <a [routerLink]="['/sessions', session.id, 'run']"
+                     class="text-xs font-semibold px-3 py-1 rounded-full bg-[var(--color-brand-500)] text-white hover:bg-[var(--color-brand-600)] transition-colors">
+                    Continue
+                  </a>
+                }
+                <span [class]="statusClass(session.status)" class="text-xs font-medium px-2 py-1 rounded-full">
+                  {{ session.status }}
+                </span>
               </div>
-              <span [class]="statusClass(session.status)" class="text-xs font-medium px-2 py-1 rounded-full">
-                {{ session.status }}
-              </span>
-            </a>
+            </div>
           }
           @if (sessions.length === 0) {
             <div class="text-center py-12 text-[var(--color-text-muted)]">
@@ -107,6 +113,15 @@ export class SessionsListComponent implements OnInit {
         this.sessions = records as SessionRow[];
         this.loading = false;
       });
+    });
+  }
+
+  sortedSessions(): SessionRow[] {
+    const priority: Record<string, number> = { IN_PROGRESS: 0, PAUSED: 1 };
+    return [...this.sessions].sort((a, b) => {
+      const pa = priority[a.status] ?? 2;
+      const pb = priority[b.status] ?? 2;
+      return pa - pb;
     });
   }
 

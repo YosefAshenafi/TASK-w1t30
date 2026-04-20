@@ -32,7 +32,7 @@ Generated: 2026-04-20 (updated after audit remediation). Derived from controller
 | `PUT /courses/{id}` | `CourseController.update()` | — (admin-only) |
 | `DELETE /courses/{id}` | `CourseController.softDelete()` | — (admin-only) |
 | `GET /courses/{id}/cohorts` | `CourseController.cohorts()` | `session-new.component.ts → http.get('/api/v1/courses/${courseId}/cohorts')` |
-| `GET /courses/{id}/assessment-items` | `AssessmentItemController.list()` | — (analytics internal) |
+| `GET /courses/{id}/assessment-items` | `CourseController.items()` | — (analytics internal) |
 | `POST /assessment-items` | `AssessmentItemController.create()` | — (admin-only) |
 
 ---

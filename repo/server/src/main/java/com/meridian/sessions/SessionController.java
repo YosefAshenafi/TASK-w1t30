@@ -18,6 +18,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -37,6 +38,7 @@ public class SessionController {
     private final ObjectMapper objectMapper;
     private final UserRepository userRepository;
 
+    @PreAuthorize("hasRole('STUDENT')")
     @PostMapping
     public ResponseEntity<TrainingSessionDto> create(@Valid @RequestBody CreateSessionRequest req,
                                                      Authentication auth,
@@ -57,6 +59,7 @@ public class SessionController {
         return ResponseEntity.status(HttpStatus.CREATED).body(doCreate(req, userId));
     }
 
+    @PreAuthorize("hasRole('STUDENT')")
     @PatchMapping("/{id}")
     public ResponseEntity<TrainingSessionDto> patch(@PathVariable UUID id,
                                                     @Valid @RequestBody PatchSessionRequest req,
@@ -69,6 +72,7 @@ public class SessionController {
         return ResponseEntity.ok(SessionMapper.toDto(sessionRepo.save(session)));
     }
 
+    @PreAuthorize("hasRole('STUDENT')")
     @PostMapping("/{id}/pause")
     public ResponseEntity<TrainingSessionDto> pause(@PathVariable UUID id, Authentication auth) {
         TrainingSession session = requireSession(id, auth);
@@ -80,6 +84,7 @@ public class SessionController {
         return ResponseEntity.ok(SessionMapper.toDto(sessionRepo.save(session)));
     }
 
+    @PreAuthorize("hasRole('STUDENT')")
     @PostMapping("/{id}/continue")
     public ResponseEntity<TrainingSessionDto> continueSession(@PathVariable UUID id, Authentication auth) {
         TrainingSession session = requireSession(id, auth);
@@ -91,6 +96,7 @@ public class SessionController {
         return ResponseEntity.ok(SessionMapper.toDto(sessionRepo.save(session)));
     }
 
+    @PreAuthorize("hasRole('STUDENT')")
     @PostMapping("/{id}/complete")
     public ResponseEntity<TrainingSessionDto> complete(@PathVariable UUID id, Authentication auth) {
         TrainingSession session = requireSession(id, auth);
@@ -100,6 +106,7 @@ public class SessionController {
         return ResponseEntity.ok(SessionMapper.toDto(sessionRepo.save(session)));
     }
 
+    @PreAuthorize("hasRole('STUDENT')")
     @PostMapping("/{id}/sets")
     public ResponseEntity<SessionSetDto> createSet(@PathVariable UUID id,
                                                    @Valid @RequestBody CreateSetRequest req,
@@ -116,6 +123,7 @@ public class SessionController {
         return ResponseEntity.status(HttpStatus.CREATED).body(SessionMapper.toSetDto(setRepo.save(set)));
     }
 
+    @PreAuthorize("hasRole('STUDENT')")
     @PatchMapping("/{id}/sets/{setId}")
     public ResponseEntity<SessionSetDto> patchSet(@PathVariable UUID id,
                                                   @PathVariable UUID setId,
