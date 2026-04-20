@@ -28,7 +28,7 @@ services:
       DB_USERNAME: ${DB_USERNAME:-meridian}
       DB_PASSWORD: ${DB_PASSWORD:-meridian_secret}
       JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:-changeme-must-be-at-least-32-characters-long-for-hmac-sha256}
-      AES_KEY_BASE64: ${AES_KEY_BASE64:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+      AES_KEY_BASE64: ${AES_KEY_BASE64:-SvjpDSe1RUNFA4oCHi4CMu09NkZeMGwf+fc0Lvgclhg=}
       BACKUP_PATH: ${BACKUP_PATH:-/app/backups}
       EXPORT_PATH: ${EXPORT_PATH:-/app/exports}
     depends_on:
