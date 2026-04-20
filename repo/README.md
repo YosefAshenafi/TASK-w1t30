@@ -25,6 +25,18 @@ After `docker compose up` completes (2–5 min for first build):
 | https://localhost/ | Angular SPA |
 | https://localhost/api/v1/health | Health check |
 
+## Default credentials
+
+| Username | Password | Role |
+|----------|----------|------|
+| `admin` | `Admin@123!` | Administrator |
+| `student1` | `Test@123!` | Student |
+| `student2` | `Test@123!` | Student |
+| `mentor1` | `Test@123!` | Corporate Mentor |
+| `faculty1` | `Test@123!` | Faculty Mentor |
+
+> Change the admin password after first login in a production environment.
+
 ## Common commands
 
 | Command | Description |

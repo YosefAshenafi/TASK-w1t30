@@ -41,6 +41,8 @@ spring:
     username: ${DB_USERNAME:meridian}
     password: ${DB_PASSWORD:meridian_secret}
     driver-class-name: org.postgresql.Driver
+  flyway:
+    locations: classpath:db/migration,classpath:db/migration/local
 
 ---
 spring:
