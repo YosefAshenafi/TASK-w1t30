@@ -9,8 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,10 +66,6 @@ class RateLimitFilterTest {
         // The 3rd request must be rate-limited
         MockHttpServletRequest req = new MockHttpServletRequest("POST", "/api/v1/auth/login");
         req.setRemoteAddr(ip);
-        MockHttpServletResponse res = new MockHttpServletResponse();
-        StringWriter body = new StringWriter();
-        when(res.getWriter()).thenReturn(new PrintWriter(body));
-        // Use a real MockHttpServletResponse to capture headers
         MockHttpServletResponse rateLimitedRes = new MockHttpServletResponse();
         filter.doFilter(req, rateLimitedRes, chain);
 

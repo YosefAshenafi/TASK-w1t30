@@ -1,321 +1,304 @@
 # Test Coverage Audit
 
 ## Scope and Method
-- Mode: static inspection only (no test execution, no builds, no package install commands run).
-- Project type detection: declared as `fullstack` in `README.md` (`README.md:3`).
-- Assumption: `api_tests/` and `unit_tests/` are archival mirrors, while authoritative backend tests are under `server/src/test/java` (`README.md:177-179`, `README.md:237`).
+- Audit mode: static inspection only (no execution).
+- Evidence scope inspected: backend controllers/routes, backend tests, frontend unit tests, E2E tests, and README.
+- Project type declaration: **fullstack** from `repo/README.md`.
 
 ## Backend Endpoint Inventory
-Resolved from Spring controller mappings under `server/src/main/java/com/meridian/**`.
-
-| # | Method | Path |
-|---|---|---|
-| 1 | GET | /api/v1/health |
-| 2 | POST | /api/v1/auth/register |
-| 3 | POST | /api/v1/auth/login |
-| 4 | POST | /api/v1/auth/refresh |
-| 5 | POST | /api/v1/auth/logout |
-| 6 | GET | /api/v1/users/me |
-| 7 | GET | /api/v1/admin/users |
-| 8 | POST | /api/v1/admin/users/:id/approve |
-| 9 | POST | /api/v1/admin/users/:id/reject |
-| 10 | GET | /api/v1/admin/users/:id |
-| 11 | PATCH | /api/v1/admin/users/:id/status |
-| 12 | POST | /api/v1/admin/users/:id/unlock |
-| 13 | GET | /api/v1/admin/audit |
-| 14 | GET | /api/v1/admin/approvals |
-| 15 | POST | /api/v1/admin/approvals/:id/approve |
-| 16 | POST | /api/v1/admin/approvals/:id/reject |
-| 17 | GET | /api/v1/admin/allowed-ip-ranges |
-| 18 | POST | /api/v1/admin/allowed-ip-ranges |
-| 19 | DELETE | /api/v1/admin/allowed-ip-ranges/:id |
-| 20 | GET | /api/v1/admin/anomalies |
-| 21 | POST | /api/v1/admin/anomalies/:id/resolve |
-| 22 | GET | /api/v1/admin/backups |
-| 23 | POST | /api/v1/admin/backups/run |
-| 24 | GET | /api/v1/admin/backups/policy |
-| 25 | PUT | /api/v1/admin/backups/policy |
-| 26 | POST | /api/v1/admin/backups/recovery-drill |
-| 27 | GET | /api/v1/admin/backups/recovery-drills |
-| 28 | GET | /api/v1/admin/recycle-bin/policy |
-| 29 | GET | /api/v1/admin/recycle-bin |
-| 30 | POST | /api/v1/admin/recycle-bin/:type/:id/restore |
-| 31 | DELETE | /api/v1/admin/recycle-bin/:type/:id |
-| 32 | GET | /api/v1/admin/notification-templates |
-| 33 | PUT | /api/v1/admin/notification-templates/:key |
-| 34 | GET | /api/v1/notifications |
-| 35 | POST | /api/v1/notifications/:id/read |
-| 36 | POST | /api/v1/notifications/read-all |
-| 37 | GET | /api/v1/notifications/unread-count |
-| 38 | POST | /api/v1/reports |
-| 39 | GET | /api/v1/reports/:id |
-| 40 | GET | /api/v1/reports/:id/download |
-| 41 | GET | /api/v1/reports |
-| 42 | POST | /api/v1/reports/:id/cancel |
-| 43 | GET | /api/v1/reports/schedules |
-| 44 | POST | /api/v1/reports/schedules |
-| 45 | PUT | /api/v1/reports/schedules/:id |
-| 46 | DELETE | /api/v1/reports/schedules/:id |
-| 47 | GET | /api/v1/courses |
-| 48 | POST | /api/v1/courses |
-| 49 | PUT | /api/v1/courses/:id |
-| 50 | DELETE | /api/v1/courses/:id |
-| 51 | GET | /api/v1/courses/:id/cohorts |
-| 52 | GET | /api/v1/courses/:id/assessment-items |
-| 53 | GET | /api/v1/courses/:courseId/knowledge-points |
-| 54 | POST | /api/v1/courses/:courseId/knowledge-points |
-| 55 | GET | /api/v1/courses/:courseId/activities |
-| 56 | POST | /api/v1/courses/:courseId/activities |
-| 57 | POST | /api/v1/assessment-items |
-| 58 | PUT | /api/v1/assessment-items/:id |
-| 59 | GET | /api/v1/analytics/mastery-trends |
-| 60 | GET | /api/v1/analytics/wrong-answers |
-| 61 | GET | /api/v1/analytics/weak-knowledge-points |
-| 62 | GET | /api/v1/analytics/item-stats |
-| 63 | POST | /api/v1/sessions |
-| 64 | PATCH | /api/v1/sessions/:id |
-| 65 | POST | /api/v1/sessions/:id/pause |
-| 66 | POST | /api/v1/sessions/:id/continue |
-| 67 | POST | /api/v1/sessions/:id/complete |
-| 68 | POST | /api/v1/sessions/:id/sets |
-| 69 | PATCH | /api/v1/sessions/:id/sets/:setId |
-| 70 | GET | /api/v1/sessions/:id |
-| 71 | GET | /api/v1/sessions |
-| 72 | POST | /api/v1/sessions/sync |
-| 73 | POST | /api/v1/sessions/attempt-drafts |
-| 74 | GET | /api/v1/sessions/:sessionId/attempt-drafts |
-| 75 | DELETE | /api/v1/sessions/:sessionId/attempt-drafts |
-| 76 | POST | /api/v1/sessions/:sessionId/submit-attempts |
-
-Evidence for route declarations: `@RequestMapping`/`@*Mapping` in controller files (for example `server/src/main/java/com/meridian/auth/AuthController.java:12-35`, plus `rg` extraction across controllers).
+- `DELETE /api/v1/admin/allowed-ip-ranges/{var}` (source: `repo/server/src/main/java/com/meridian/governance/AllowedIpRangeController.java`)
+- `DELETE /api/v1/admin/recycle-bin/{var}/{var}` (source: `repo/server/src/main/java/com/meridian/recyclebin/RecycleBinController.java`)
+- `DELETE /api/v1/courses/{var}` (source: `repo/server/src/main/java/com/meridian/courses/CourseController.java`)
+- `DELETE /api/v1/reports/schedules/{var}` (source: `repo/server/src/main/java/com/meridian/reports/ReportController.java`)
+- `DELETE /api/v1/sessions/{var}/attempt-drafts` (source: `repo/server/src/main/java/com/meridian/sessions/AttemptDraftController.java`)
+- `GET /api/v1/admin/allowed-ip-ranges` (source: `repo/server/src/main/java/com/meridian/governance/AllowedIpRangeController.java`)
+- `GET /api/v1/admin/anomalies` (source: `repo/server/src/main/java/com/meridian/security/anomaly/AnomalyController.java`)
+- `GET /api/v1/admin/approvals` (source: `repo/server/src/main/java/com/meridian/approvals/ApprovalController.java`)
+- `GET /api/v1/admin/audit` (source: `repo/server/src/main/java/com/meridian/security/audit/AuditController.java`)
+- `GET /api/v1/admin/backups` (source: `repo/server/src/main/java/com/meridian/backups/BackupController.java`)
+- `GET /api/v1/admin/backups/policy` (source: `repo/server/src/main/java/com/meridian/backups/BackupController.java`)
+- `GET /api/v1/admin/backups/recovery-drills` (source: `repo/server/src/main/java/com/meridian/backups/BackupController.java`)
+- `GET /api/v1/admin/notification-templates` (source: `repo/server/src/main/java/com/meridian/notifications/TemplateController.java`)
+- `GET /api/v1/admin/recycle-bin` (source: `repo/server/src/main/java/com/meridian/recyclebin/RecycleBinController.java`)
+- `GET /api/v1/admin/recycle-bin/policy` (source: `repo/server/src/main/java/com/meridian/recyclebin/RecycleBinController.java`)
+- `GET /api/v1/admin/users` (source: `repo/server/src/main/java/com/meridian/users/AdminUserController.java`)
+- `GET /api/v1/admin/users/{var}` (source: `repo/server/src/main/java/com/meridian/users/AdminUserController.java`)
+- `GET /api/v1/analytics/item-stats` (source: `repo/server/src/main/java/com/meridian/analytics/AnalyticsController.java`)
+- `GET /api/v1/analytics/mastery-trends` (source: `repo/server/src/main/java/com/meridian/analytics/AnalyticsController.java`)
+- `GET /api/v1/analytics/weak-knowledge-points` (source: `repo/server/src/main/java/com/meridian/analytics/AnalyticsController.java`)
+- `GET /api/v1/analytics/wrong-answers` (source: `repo/server/src/main/java/com/meridian/analytics/AnalyticsController.java`)
+- `GET /api/v1/courses` (source: `repo/server/src/main/java/com/meridian/courses/CourseController.java`)
+- `GET /api/v1/courses/{var}/activities` (source: `repo/server/src/main/java/com/meridian/courses/ActivityController.java`)
+- `GET /api/v1/courses/{var}/assessment-items` (source: `repo/server/src/main/java/com/meridian/courses/CourseController.java`)
+- `GET /api/v1/courses/{var}/cohorts` (source: `repo/server/src/main/java/com/meridian/courses/CourseController.java`)
+- `GET /api/v1/courses/{var}/knowledge-points` (source: `repo/server/src/main/java/com/meridian/courses/KnowledgePointController.java`)
+- `GET /api/v1/health` (source: `repo/server/src/main/java/com/meridian/HealthController.java`)
+- `GET /api/v1/notifications` (source: `repo/server/src/main/java/com/meridian/notifications/NotificationController.java`)
+- `GET /api/v1/notifications/unread-count` (source: `repo/server/src/main/java/com/meridian/notifications/NotificationController.java`)
+- `GET /api/v1/reports` (source: `repo/server/src/main/java/com/meridian/reports/ReportController.java`)
+- `GET /api/v1/reports/schedules` (source: `repo/server/src/main/java/com/meridian/reports/ReportController.java`)
+- `GET /api/v1/reports/{var}` (source: `repo/server/src/main/java/com/meridian/reports/ReportController.java`)
+- `GET /api/v1/reports/{var}/download` (source: `repo/server/src/main/java/com/meridian/reports/ReportController.java`)
+- `GET /api/v1/sessions` (source: `repo/server/src/main/java/com/meridian/sessions/SessionController.java`)
+- `GET /api/v1/sessions/{var}` (source: `repo/server/src/main/java/com/meridian/sessions/SessionController.java`)
+- `GET /api/v1/sessions/{var}/attempt-drafts` (source: `repo/server/src/main/java/com/meridian/sessions/AttemptDraftController.java`)
+- `GET /api/v1/users/me` (source: `repo/server/src/main/java/com/meridian/users/UserController.java`)
+- `PATCH /api/v1/admin/users/{var}/status` (source: `repo/server/src/main/java/com/meridian/users/AdminUserController.java`)
+- `PATCH /api/v1/sessions/{var}` (source: `repo/server/src/main/java/com/meridian/sessions/SessionController.java`)
+- `PATCH /api/v1/sessions/{var}/sets/{var}` (source: `repo/server/src/main/java/com/meridian/sessions/SessionController.java`)
+- `POST /api/v1/admin/allowed-ip-ranges` (source: `repo/server/src/main/java/com/meridian/governance/AllowedIpRangeController.java`)
+- `POST /api/v1/admin/anomalies/{var}/resolve` (source: `repo/server/src/main/java/com/meridian/security/anomaly/AnomalyController.java`)
+- `POST /api/v1/admin/approvals/{var}/approve` (source: `repo/server/src/main/java/com/meridian/approvals/ApprovalController.java`)
+- `POST /api/v1/admin/approvals/{var}/reject` (source: `repo/server/src/main/java/com/meridian/approvals/ApprovalController.java`)
+- `POST /api/v1/admin/backups/recovery-drill` (source: `repo/server/src/main/java/com/meridian/backups/BackupController.java`)
+- `POST /api/v1/admin/backups/run` (source: `repo/server/src/main/java/com/meridian/backups/BackupController.java`)
+- `POST /api/v1/admin/recycle-bin/{var}/{var}/restore` (source: `repo/server/src/main/java/com/meridian/recyclebin/RecycleBinController.java`)
+- `POST /api/v1/admin/users/{var}/approve` (source: `repo/server/src/main/java/com/meridian/users/AdminUserController.java`)
+- `POST /api/v1/admin/users/{var}/reject` (source: `repo/server/src/main/java/com/meridian/users/AdminUserController.java`)
+- `POST /api/v1/admin/users/{var}/unlock` (source: `repo/server/src/main/java/com/meridian/users/AdminUserController.java`)
+- `POST /api/v1/assessment-items` (source: `repo/server/src/main/java/com/meridian/courses/AssessmentItemController.java`)
+- `POST /api/v1/auth/login` (source: `repo/server/src/main/java/com/meridian/auth/AuthController.java`)
+- `POST /api/v1/auth/logout` (source: `repo/server/src/main/java/com/meridian/auth/AuthController.java`)
+- `POST /api/v1/auth/refresh` (source: `repo/server/src/main/java/com/meridian/auth/AuthController.java`)
+- `POST /api/v1/auth/register` (source: `repo/server/src/main/java/com/meridian/auth/AuthController.java`)
+- `POST /api/v1/courses` (source: `repo/server/src/main/java/com/meridian/courses/CourseController.java`)
+- `POST /api/v1/courses/{var}/activities` (source: `repo/server/src/main/java/com/meridian/courses/ActivityController.java`)
+- `POST /api/v1/courses/{var}/knowledge-points` (source: `repo/server/src/main/java/com/meridian/courses/KnowledgePointController.java`)
+- `POST /api/v1/notifications/read-all` (source: `repo/server/src/main/java/com/meridian/notifications/NotificationController.java`)
+- `POST /api/v1/notifications/{var}/read` (source: `repo/server/src/main/java/com/meridian/notifications/NotificationController.java`)
+- `POST /api/v1/reports` (source: `repo/server/src/main/java/com/meridian/reports/ReportController.java`)
+- `POST /api/v1/reports/schedules` (source: `repo/server/src/main/java/com/meridian/reports/ReportController.java`)
+- `POST /api/v1/reports/{var}/cancel` (source: `repo/server/src/main/java/com/meridian/reports/ReportController.java`)
+- `POST /api/v1/sessions` (source: `repo/server/src/main/java/com/meridian/sessions/SessionController.java`)
+- `POST /api/v1/sessions/attempt-drafts` (source: `repo/server/src/main/java/com/meridian/sessions/AttemptDraftController.java`)
+- `POST /api/v1/sessions/sync` (source: `repo/server/src/main/java/com/meridian/sessions/SessionSyncController.java`)
+- `POST /api/v1/sessions/{var}/complete` (source: `repo/server/src/main/java/com/meridian/sessions/SessionController.java`)
+- `POST /api/v1/sessions/{var}/continue` (source: `repo/server/src/main/java/com/meridian/sessions/SessionController.java`)
+- `POST /api/v1/sessions/{var}/pause` (source: `repo/server/src/main/java/com/meridian/sessions/SessionController.java`)
+- `POST /api/v1/sessions/{var}/sets` (source: `repo/server/src/main/java/com/meridian/sessions/SessionController.java`)
+- `POST /api/v1/sessions/{var}/submit-attempts` (source: `repo/server/src/main/java/com/meridian/sessions/AttemptDraftController.java`)
+- `PUT /api/v1/admin/backups/policy` (source: `repo/server/src/main/java/com/meridian/backups/BackupController.java`)
+- `PUT /api/v1/admin/notification-templates/{var}` (source: `repo/server/src/main/java/com/meridian/notifications/TemplateController.java`)
+- `PUT /api/v1/assessment-items/{var}` (source: `repo/server/src/main/java/com/meridian/courses/AssessmentItemController.java`)
+- `PUT /api/v1/courses/{var}` (source: `repo/server/src/main/java/com/meridian/courses/CourseController.java`)
+- `PUT /api/v1/reports/schedules/{var}` (source: `repo/server/src/main/java/com/meridian/reports/ReportController.java`)
 
 ## API Test Mapping Table
-Coverage criterion used: exact `METHOD + PATH` hit in test request.
-
-| Endpoint | Covered | Test Type | Test Files | Evidence |
+| Endpoint | Covered | Test type | Test file | Evidence |
 |---|---|---|---|---|
-| GET /api/v1/health | yes | true no-mock HTTP | `server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `health_overRealHttp_returnsUpWithVersion` (`TrueNoMockHttpApiTest.java:100-107`) |
-| POST /api/v1/auth/register | yes | true no-mock HTTP | same | `authRegister_newStudent_returnsPendingResponse` (`:162-181`) |
-| POST /api/v1/auth/login | yes | true no-mock HTTP | same | `authLogin_withSeededAdmin_returnsAccessAndRefreshTokens` (`:113-126`) |
-| POST /api/v1/auth/refresh | yes | true no-mock HTTP | same | `authRefresh_withValidRefreshToken_returnsNewAccessToken` (`:186-199`) |
-| POST /api/v1/auth/logout | yes | true no-mock HTTP | same | `authLogout_withValidRefreshToken_returns204` (`:204-214`) |
-| GET /api/v1/users/me | yes | true no-mock HTTP | same | `usersMe_withValidStudentJwt_returnsProfile` (`:221-235`) |
-| GET /api/v1/admin/users | yes | true no-mock HTTP | same | `adminUsers_withAdminJwt_returnsPageShape` (`:277+`) |
-| POST /api/v1/admin/users/:id/approve | yes | true no-mock HTTP | same | `adminUsersApprove_unknownId_withAdminJwt_returns4xx` (`:962+`) |
-| POST /api/v1/admin/users/:id/reject | yes | true no-mock HTTP | same | `adminUsersReject_emptyReason_withAdminJwt_returns400` (`:986+`) |
-| GET /api/v1/admin/users/:id | yes | true no-mock HTTP | same | `adminUsersById_withAdminJwt_returns200Or404` (`:944+`) |
-| PATCH /api/v1/admin/users/:id/status | yes | true no-mock HTTP | same | `adminUsersPatchStatus_invalidValue_returns400` (`:1035+`) |
-| POST /api/v1/admin/users/:id/unlock | yes | true no-mock HTTP | same | `adminUsersUnlock_withAdminJwt_idempotentlyReturns2xx` (`:1010+`) |
-| GET /api/v1/admin/audit | yes | true no-mock HTTP | same | `adminAudit_withAdminJwt_returnsPageShape` (`:295+`) |
-| GET /api/v1/admin/approvals | yes | true no-mock HTTP | same | `adminApprovals_withAdminJwt_returnsPage` (`:328+`) |
-| POST /api/v1/admin/approvals/:id/approve | yes | true no-mock HTTP | same | `approvalsApprove_unknownId_withAdminJwt_returns4xx` (`:1173+`) |
-| POST /api/v1/admin/approvals/:id/reject | yes | true no-mock HTTP | same | `approvalsReject_withStudentJwt_returns403` (`:1197+`) |
-| GET /api/v1/admin/allowed-ip-ranges | yes | true no-mock HTTP | same | `allowedIpRanges_fullCrud_overRealHttp` (`:1061+`) |
-| POST /api/v1/admin/allowed-ip-ranges | yes | true no-mock HTTP | same | `allowedIpRanges_fullCrud_overRealHttp` (`:1061+`) |
-| DELETE /api/v1/admin/allowed-ip-ranges/:id | yes | true no-mock HTTP | same | `allowedIpRanges_fullCrud_overRealHttp` (`:1061+`) |
-| GET /api/v1/admin/anomalies | yes | true no-mock HTTP | same | `adminAnomalies_withAdminJwt_returnsPage` (`:358+`) |
-| POST /api/v1/admin/anomalies/:id/resolve | yes | true no-mock HTTP | same | `anomaliesResolve_unknownId_returns404` (`:1147+`) |
-| GET /api/v1/admin/backups | yes | true no-mock HTTP | same | `adminBackups_list_withAdminJwt_returnsPageShape` (`:1797+`) |
-| POST /api/v1/admin/backups/run | yes | true no-mock HTTP | same | `adminBackups_run_withAdminJwt_triggersBackupOrAccepts409` (`:1812+`) |
-| GET /api/v1/admin/backups/policy | yes | true no-mock HTTP | same | `backupsPolicy_getAndRoundtrip_overRealHttp` (`:1211+`) |
-| PUT /api/v1/admin/backups/policy | yes | true no-mock HTTP | same | `backupsPolicy_getAndRoundtrip_overRealHttp` (`:1211+`) |
-| POST /api/v1/admin/backups/recovery-drill | yes | true no-mock HTTP | same | `backupsRecoveryDrill_withNoBackup_returns409or202` (`:1269+`) |
-| GET /api/v1/admin/backups/recovery-drills | yes | true no-mock HTTP | same | `backupsRecoveryDrills_adminList_returns200` (`:1256+`) |
-| GET /api/v1/admin/recycle-bin/policy | yes | true no-mock HTTP | same | `recycleBinPolicy_adminJwt_returnsRetentionDays` (`:1307+`) |
-| GET /api/v1/admin/recycle-bin | yes | true no-mock HTTP | same | `recycleBinList_adminJwt_returnsPage` (`:1320+`) |
-| POST /api/v1/admin/recycle-bin/:type/:id/restore | yes | true no-mock HTTP | same | `recycleBinRestore_unknownId_returns404` (`:1333+`) |
-| DELETE /api/v1/admin/recycle-bin/:type/:id | yes | true no-mock HTTP | same | `recycleBinHardDelete_unknownType_returns400` (`:1357+`) |
-| GET /api/v1/admin/notification-templates | yes | true no-mock HTTP | same | `notificationTemplatesList_adminJwt_returnsPage` (`:1383+`) |
-| PUT /api/v1/admin/notification-templates/:key | yes | true no-mock HTTP | same | `notificationTemplatesUpdate_unknownKey_returns404` (`:1396+`) |
-| GET /api/v1/notifications | yes | true no-mock HTTP | same | `notifications_list_withStudentJwt_returnsPageShape` (`:798+`) |
-| POST /api/v1/notifications/:id/read | yes | true no-mock HTTP | same | `notificationsReadUnknownId_studentJwt_returns404` (`:1436+`) |
-| POST /api/v1/notifications/read-all | yes | true no-mock HTTP | same | `notifications_markAllRead_returns204` (`:832+`) |
-| GET /api/v1/notifications/unread-count | yes | true no-mock HTTP | same | `notifications_unreadCount_returnsUnreadCountField` (`:815+`) |
-| POST /api/v1/reports | yes | true no-mock HTTP | same | `reportsLifecycle_createGetCancelList_overRealHttp` (`:585+`) |
-| GET /api/v1/reports/:id | yes | true no-mock HTTP | same | `reportsLifecycle_createGetCancelList_overRealHttp` (`:585+`) |
-| GET /api/v1/reports/:id/download | yes | true no-mock HTTP | same | `reportsLifecycle_createGetCancelList_overRealHttp` (`:585+`) |
-| GET /api/v1/reports | yes | true no-mock HTTP | same | `reportsLifecycle_createGetCancelList_overRealHttp` (`:585+`) |
-| POST /api/v1/reports/:id/cancel | yes | true no-mock HTTP | same | `reportsLifecycle_createGetCancelList_overRealHttp` (`:585+`) |
-| GET /api/v1/reports/schedules | yes | true no-mock HTTP | same | `reportsScheduleLifecycle_createUpdateListDelete_overRealHttp` (`:638+`) |
-| POST /api/v1/reports/schedules | yes | true no-mock HTTP | same | `reportsScheduleLifecycle_createUpdateListDelete_overRealHttp` (`:638+`) |
-| PUT /api/v1/reports/schedules/:id | yes | true no-mock HTTP | same | `reportsScheduleLifecycle_createUpdateListDelete_overRealHttp` (`:638+`) |
-| DELETE /api/v1/reports/schedules/:id | yes | true no-mock HTTP | same | `reportsScheduleLifecycle_createUpdateListDelete_overRealHttp` (`:638+`) |
-| GET /api/v1/courses | yes | true no-mock HTTP | same | `coursesList_withStudentJwt_returnsPage` (`:848+`) |
-| POST /api/v1/courses | yes | true no-mock HTTP | same | `courseAuthoring_endToEnd_createUpdateDelete` (`:1624+`) |
-| PUT /api/v1/courses/:id | yes | true no-mock HTTP | same | `courseAuthoring_endToEnd_createUpdateDelete` (`:1624+`) |
-| DELETE /api/v1/courses/:id | yes | true no-mock HTTP | same | `courseAuthoring_endToEnd_createUpdateDelete` (`:1624+`) |
-| GET /api/v1/courses/:id/cohorts | yes | true no-mock HTTP | same | `coursesCohorts_adminJwt_returns200` (`:1707+`) |
-| GET /api/v1/courses/:id/assessment-items | yes | true no-mock HTTP | same | `coursesAssessmentItems_publicCourse_returnsPage` (`:868+`) |
-| GET /api/v1/courses/:courseId/knowledge-points | yes | true no-mock HTTP | same | `coursesKnowledgePoints_publicCourse_returnsArray` (`:899+`) |
-| POST /api/v1/courses/:courseId/knowledge-points | yes | true no-mock HTTP | same | `courseAuthoring_endToEnd_createUpdateDelete` (`:1624+`) |
-| GET /api/v1/courses/:courseId/activities | yes | true no-mock HTTP | same | `coursesActivities_publicCourse_returnsArray` (`:884+`) |
-| POST /api/v1/courses/:courseId/activities | yes | true no-mock HTTP | same | `courseAuthoring_endToEnd_createUpdateDelete` (`:1624+`) |
-| POST /api/v1/assessment-items | yes | true no-mock HTTP | same | `courseAuthoring_endToEnd_createUpdateDelete` (`:1624+`) |
-| PUT /api/v1/assessment-items/:id | yes | true no-mock HTTP | same | `courseAuthoring_endToEnd_createUpdateDelete` (`:1624+`) |
-| GET /api/v1/analytics/mastery-trends | yes | true no-mock HTTP | same | `analytics_masteryTrends_withMentorJwt_reachesRouteAndIsAuthorized` (`:695+`) |
-| GET /api/v1/analytics/wrong-answers | yes | true no-mock HTTP | same | `analyticsWrongAnswers_withMentorJwt_returnsItemsEnvelope` (`:1772+`) |
-| GET /api/v1/analytics/weak-knowledge-points | yes | true no-mock HTTP | same | `analytics_weakKnowledgePoints_withFacultyJwt_reachesRouteAndIsAuthorized` (`:720+`) |
-| GET /api/v1/analytics/item-stats | yes | true no-mock HTTP | same | `analytics_itemStats_withMentorJwt_reachesRouteAndIsAuthorized` (`:762+`) |
-| POST /api/v1/sessions | yes | true no-mock HTTP | same | `sessionsCreate_withStudentJwt_returnsCreatedDto` (`:376+`) |
-| PATCH /api/v1/sessions/:id | yes | true no-mock HTTP | same | `sessionsLifecycle_createPausePatchCompleteGet_assertsEachTransition` (`:404+`) |
-| POST /api/v1/sessions/:id/pause | yes | true no-mock HTTP | same | `sessionsLifecycle_createPausePatchCompleteGet_assertsEachTransition` (`:404+`) |
-| POST /api/v1/sessions/:id/continue | yes | true no-mock HTTP | same | `sessionsLifecycle_createPausePatchCompleteGet_assertsEachTransition` (`:404+`) |
-| POST /api/v1/sessions/:id/complete | yes | true no-mock HTTP | same | `sessionsLifecycle_createPausePatchCompleteGet_assertsEachTransition` (`:404+`) |
-| POST /api/v1/sessions/:id/sets | yes | true no-mock HTTP | same | `sessionsSetsLifecycle_createPatchOverRealHttp` (`:1461+`) |
-| PATCH /api/v1/sessions/:id/sets/:setId | yes | true no-mock HTTP | same | `sessionsSetsLifecycle_createPatchOverRealHttp` (`:1461+`) |
-| GET /api/v1/sessions/:id | yes | true no-mock HTTP | same | `sessionsLifecycle_createPausePatchCompleteGet_assertsEachTransition` (`:404+`) |
-| GET /api/v1/sessions | yes | true no-mock HTTP | same | `sessionsList_asStudent_scopedToOwnSessions` (`:514+`) |
-| POST /api/v1/sessions/sync | yes | true no-mock HTTP | same | `sessionsSync_asStudent_returnsAppliedAndConflictsEnvelope` (`:538+`) |
-| POST /api/v1/sessions/attempt-drafts | yes | true no-mock HTTP | same | `sessionsAttemptDrafts_fullCrudOverRealHttp` (`:1510+`) |
-| GET /api/v1/sessions/:sessionId/attempt-drafts | yes | true no-mock HTTP | same | `sessionsAttemptDrafts_fullCrudOverRealHttp` (`:1510+`) |
-| DELETE /api/v1/sessions/:sessionId/attempt-drafts | yes | true no-mock HTTP | same | `sessionsAttemptDrafts_fullCrudOverRealHttp` (`:1510+`) |
-| POST /api/v1/sessions/:sessionId/submit-attempts | yes | true no-mock HTTP | same | `sessionsAttemptDrafts_fullCrudOverRealHttp` (`:1510+`) |
-
-Additional HTTP-with-mocked-transport evidence (MockMvc): `server/src/test/java/com/meridian/AuthApiTest.java:24-33`, `:52-56`; `server/src/test/java/com/meridian/NoMockAuthCoverageApiTest.java:24-27`, `:42-45`.
+| `DELETE /api/v1/admin/allowed-ip-ranges/{var}` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `allowedIpRanges_studentJwt_returns403OnAllMethods` |
+| `DELETE /api/v1/admin/recycle-bin/{var}/{var}` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `recycleBinHardDelete_studentJwt_returns403` |
+| `DELETE /api/v1/courses/{var}` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `coursesDelete_studentJwt_returns403` |
+| `DELETE /api/v1/reports/schedules/{var}` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `reportsScheduleLifecycle_createUpdateListDelete_overRealHttp` |
+| `DELETE /api/v1/sessions/{var}/attempt-drafts` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `sessionsAttemptDrafts_fullCrudOverRealHttp` |
+| `GET /api/v1/admin/allowed-ip-ranges` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `allowedIpRanges_fullCrud_overRealHttp` |
+| `GET /api/v1/admin/anomalies` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `adminAnomalies_withAdminJwt_returnsPage` |
+| `GET /api/v1/admin/approvals` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `adminApprovals_withAdminJwt_returnsPage` |
+| `GET /api/v1/admin/audit` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `adminAudit_withAdminJwt_returnsPageShape` |
+| `GET /api/v1/admin/backups` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `adminBackups_list_withAdminJwt_returnsPageShape` |
+| `GET /api/v1/admin/backups/policy` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `backupsPolicy_getAndRoundtrip_overRealHttp` |
+| `GET /api/v1/admin/backups/recovery-drills` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `adminBackups_recoveryDrillsList_withAdminJwt_returnsPageShape` |
+| `GET /api/v1/admin/notification-templates` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `notificationTemplatesList_adminJwt_returnsPage` |
+| `GET /api/v1/admin/recycle-bin` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `recycleBinList_adminJwt_returnsPage` |
+| `GET /api/v1/admin/recycle-bin/policy` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `recycleBinPolicy_adminJwt_returnsRetentionDays` |
+| `GET /api/v1/admin/users` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `adminUsers_withAdminJwt_returnsPageShape` |
+| `GET /api/v1/admin/users/{var}` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `adminUsersById_withAdminJwt_returns200Or404` |
+| `GET /api/v1/analytics/item-stats` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `analytics_itemStats_asStudent_returns403` |
+| `GET /api/v1/analytics/mastery-trends` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `analytics_masteryTrends_asStudentViewingAnotherStudent_notForbidden` |
+| `GET /api/v1/analytics/weak-knowledge-points` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `analytics_weakKnowledgePoints_withFacultyJwt_reachesRouteAndIsAuthorized` |
+| `GET /api/v1/analytics/wrong-answers` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `analyticsWrongAnswers_anonymous_returns401` |
+| `GET /api/v1/courses` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `coursesList_withStudentJwt_returnsPage` |
+| `GET /api/v1/courses/{var}/activities` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `coursesActivities_publicCourse_returnsArray` |
+| `GET /api/v1/courses/{var}/assessment-items` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `coursesAssessmentItems_publicCourse_returnsPage` |
+| `GET /api/v1/courses/{var}/cohorts` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `coursesCohorts_adminJwt_returns200` |
+| `GET /api/v1/courses/{var}/knowledge-points` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `coursesKnowledgePoints_publicCourse_returnsArray` |
+| `GET /api/v1/health` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `health_overRealHttp_returnsUpWithVersion` |
+| `GET /api/v1/notifications` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `notifications_list_withStudentJwt_returnsPageShape` |
+| `GET /api/v1/notifications/unread-count` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `notifications_unreadCount_returnsUnreadCountField` |
+| `GET /api/v1/reports` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `reportsLifecycle_createGetCancelList_overRealHttp` |
+| `GET /api/v1/reports/schedules` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `reportsScheduleLifecycle_createUpdateListDelete_overRealHttp` |
+| `GET /api/v1/reports/{var}` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `reportsScheduleLifecycle_createUpdateListDelete_overRealHttp` |
+| `GET /api/v1/reports/{var}/download` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `reportsLifecycle_createGetCancelList_overRealHttp` |
+| `GET /api/v1/sessions` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `sessionsList_asStudent_scopedToOwnSessions` |
+| `GET /api/v1/sessions/{var}` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `sessionsGet_crossStudent_returnsForbiddenOrNotFound` |
+| `GET /api/v1/sessions/{var}/attempt-drafts` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `sessionsAttemptDrafts_foreignStudent_returns403` |
+| `GET /api/v1/users/me` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `usersMe_withGarbageJwt_returns401` |
+| `PATCH /api/v1/admin/users/{var}/status` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `adminUsersPatchStatus_invalidValue_returns400` |
+| `PATCH /api/v1/sessions/{var}` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `sessionsLifecycle_createPausePatchCompleteGet_assertsEachTransition` |
+| `PATCH /api/v1/sessions/{var}/sets/{var}` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `sessionsSetsLifecycle_createPatchOverRealHttp` |
+| `POST /api/v1/admin/allowed-ip-ranges` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `allowedIpRanges_create_emptyCidr_returns400` |
+| `POST /api/v1/admin/anomalies/{var}/resolve` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `adminAnomalies_resolve_knownId_withAdminJwt_returns200` |
+| `POST /api/v1/admin/approvals/{var}/approve` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `adminApprovals_approve_knownPendingId_withAdminJwt_returns200` |
+| `POST /api/v1/admin/approvals/{var}/reject` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `approvalsReject_withStudentJwt_returns403` |
+| `POST /api/v1/admin/backups/recovery-drill` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `backupsRecoveryDrill_withNoBackup_returns409or202` |
+| `POST /api/v1/admin/backups/run` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `adminBackups_run_withAdminJwt_triggersBackupOrAccepts409` |
+| `POST /api/v1/admin/recycle-bin/{var}/{var}/restore` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `recycleBinRestore_unknownId_returns404` |
+| `POST /api/v1/admin/users/{var}/approve` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `adminUsersApprove_unknownId_withAdminJwt_returns4xx` |
+| `POST /api/v1/admin/users/{var}/reject` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `adminUsersReject_emptyReason_withAdminJwt_returns400` |
+| `POST /api/v1/admin/users/{var}/unlock` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `adminUsersUnlock_withAdminJwt_idempotentlyReturns2xx` |
+| `POST /api/v1/assessment-items` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `courseAuthoring_endToEnd_createUpdateDelete` |
+| `POST /api/v1/auth/login` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `authLogin_withSeededAdmin_returnsAccessAndRefreshTokens` |
+| `POST /api/v1/auth/logout` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `authLogout_withValidRefreshToken_returns204` |
+| `POST /api/v1/auth/refresh` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `authRefresh_withValidRefreshToken_returnsNewAccessToken` |
+| `POST /api/v1/auth/register` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `authRegister_newStudent_returnsPendingResponse` |
+| `POST /api/v1/courses` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `courseAuthoring_endToEnd_createUpdateDelete` |
+| `POST /api/v1/courses/{var}/activities` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `coursesActivitiesPost_studentJwt_returns403` |
+| `POST /api/v1/courses/{var}/knowledge-points` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `coursesKnowledgePointsPost_studentJwt_returns403` |
+| `POST /api/v1/notifications/read-all` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `notifications_markAllRead_returns204` |
+| `POST /api/v1/notifications/{var}/read` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `notificationsRead_anonymous_returns401` |
+| `POST /api/v1/reports` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `reportsCreate_asStudent_returns403` |
+| `POST /api/v1/reports/schedules` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `reportsScheduleLifecycle_createUpdateListDelete_overRealHttp` |
+| `POST /api/v1/reports/{var}/cancel` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `reportsLifecycle_createGetCancelList_overRealHttp` |
+| `POST /api/v1/sessions` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `sessionsAttemptDrafts_foreignStudent_returns403` |
+| `POST /api/v1/sessions/attempt-drafts` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `sessionsAttemptDrafts_foreignStudent_returns403` |
+| `POST /api/v1/sessions/sync` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `sessionsSync_asStudent_returnsAppliedAndConflictsEnvelope` |
+| `POST /api/v1/sessions/{var}/complete` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `sessionsLifecycle_createPausePatchCompleteGet_assertsEachTransition` |
+| `POST /api/v1/sessions/{var}/continue` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `sessionsLifecycle_createPausePatchCompleteGet_assertsEachTransition` |
+| `POST /api/v1/sessions/{var}/pause` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `sessionsLifecycle_createPausePatchCompleteGet_assertsEachTransition` |
+| `POST /api/v1/sessions/{var}/sets` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `sessionsSetsLifecycle_createPatchOverRealHttp` |
+| `POST /api/v1/sessions/{var}/submit-attempts` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `sessionsAttemptDrafts_fullCrudOverRealHttp` |
+| `PUT /api/v1/admin/backups/policy` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `backupsPolicy_getAndRoundtrip_overRealHttp` |
+| `PUT /api/v1/admin/notification-templates/{var}` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `notificationTemplatesUpdate_emptyBody_returns400` |
+| `PUT /api/v1/assessment-items/{var}` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `courseAuthoring_endToEnd_createUpdateDelete` |
+| `PUT /api/v1/courses/{var}` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `coursesPut_studentJwt_returns403` |
+| `PUT /api/v1/reports/schedules/{var}` | yes | true no-mock HTTP | `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java` | `reportsScheduleLifecycle_createUpdateListDelete_overRealHttp` |
 
 ## API Test Classification
 1. True No-Mock HTTP
-- `server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java`.
-- Evidence: real TCP port + `TestRestTemplate`, no `@AutoConfigureMockMvc` (`TrueNoMockHttpApiTest.java:50-67`).
+- `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java`
+  Evidence: `TestRestTemplate`, `@SpringBootTest(webEnvironment = RANDOM_PORT)`, and class comment explicitly states no MockMvc/mocked principals/mocked services.
 
-2. HTTP with Mocking (transport-layer)
-- All `*ApiTest.java` classes using `@AutoConfigureMockMvc` + `MockMvc` (for example `AuthApiTest.java:24-33`, `NoMockAuthCoverageApiTest.java:24-37`).
-- Includes archival mirror under `api_tests/src/test/java/com/meridian/*.java` (same pattern).
+2. HTTP with Mocking
+- 21 files, including:
+- `repo/server/src/test/java/com/meridian/AuthApiTest.java`
+- `repo/server/src/test/java/com/meridian/SessionLifecycleApiTest.java`
+- `repo/server/src/test/java/com/meridian/OrgScopeApiTest.java`
+- `repo/server/src/test/java/com/meridian/ClassificationApiTest.java`
+  Evidence: `MockMvc` + `@AutoConfigureMockMvc` and widespread `@WithMockUser` usage.
 
 3. Non-HTTP (unit/integration without HTTP)
-- Service/controller/repository/filter unit tests under `server/src/test/java/com/meridian/**` excluding API classes.
-- Example mock-heavy unit tests: `server/src/test/java/com/meridian/auth/AuthServiceTest.java:55-76`.
+- 45 files, including:
+- `repo/server/src/test/java/com/meridian/auth/AuthServiceTest.java`
+- `repo/server/src/test/java/com/meridian/sessions/SessionControllerUnitTest.java`
+- `repo/server/src/test/java/com/meridian/governance/AllowedIpRangeControllerUnitTest.java`
+- `repo/unit_tests/server/SyncResolverTest.java`
 
-## Mock Detection
-- API tests (`*ApiTest.java`) show no `@MockBean`, `@Mock`, `Mockito.mock`, `when(...)` hits in static grep.
-- However, MockMvc suites still use mocked servlet transport and are classified as HTTP-with-mocking per strict rule.
-- Explicit mocking in non-HTTP unit tests:
-  - `AuthServiceTest`: mocked repositories/services (`server/src/test/java/com/meridian/auth/AuthServiceTest.java:55-65`).
-  - Similar Mockito patterns across service tests (`reports/runner`, `analytics`, `approvals`, `users`, `security`, etc.).
+## Mock Detection (Strict)
+- Mocked principal / auth context:
+  - WHAT: mocked security principal via `@WithMockUser`
+  - WHERE: `repo/server/src/test/java/com/meridian/ClassificationApiTest.java`, `repo/server/src/test/java/com/meridian/OrgScopeApiTest.java`, `repo/server/src/test/java/com/meridian/OrgIsolationContentApiTest.java`, `repo/server/src/test/java/com/meridian/ReportApiTest.java`.
+- Mockito mocks in unit tests:
+  - WHAT: mocked repositories/services (`Mockito.mock`, `@Mock`)
+  - WHERE: `repo/server/src/test/java/com/meridian/auth/AuthServiceTest.java`, `repo/server/src/test/java/com/meridian/analytics/AnalyticsServiceTest.java`, `repo/server/src/test/java/com/meridian/reports/runner/ReportRunnerTest.java`.
+- Direct controller invocation bypassing HTTP layer:
+  - WHAT: direct method calls on controllers with mocked dependencies
+  - WHERE: `repo/server/src/test/java/com/meridian/sessions/SessionControllerUnitTest.java`, `repo/server/src/test/java/com/meridian/governance/AllowedIpRangeControllerUnitTest.java`.
 
 ## Coverage Summary
 - Total endpoints: **76**
-- Endpoints with HTTP tests (any HTTP style): **76**
-- Endpoints with TRUE no-mock HTTP tests: **76**
+- Endpoints with HTTP tests: **76**
+- Endpoints with TRUE no-mock tests: **76**
 - HTTP coverage: **100.0%**
 - True API coverage: **100.0%**
 
 ## Unit Test Summary
 ### Backend Unit Tests
-- Backend unit test files exist broadly across controllers/services/repositories/security filters.
-- Covered modules (examples):
-  - Controllers: `AllowedIpRangeControllerUnitTest`, `SessionControllerUnitTest`.
-  - Services/runners: `AuthServiceTest`, `ApprovalServiceTest`, `AnalyticsServiceTest`, `NotificationServiceTest`, `BackupRunnerTest`, `ReportRunnerTest`.
-  - Repositories: `TrainingSessionRepositoryTest`.
-  - Auth/guards/middleware: `JwtAuthenticationFilterTest`, `RateLimitFilterTest`, `IdempotencyInterceptorTest`, `RequestIdFilterTest`.
-- Important backend modules not unit-tested directly (API-tested instead): several controllers such as `ReportController`, `BackupController`, `NotificationController`, `AnalyticsController`, `RecycleBinController`.
+- Present in `repo/server/src/test/java/com/meridian/**` and mirror set in `repo/unit_tests/server/**`.
+- Covered module types (evidence):
+  - Controllers: `sessions/SessionControllerUnitTest.java`, `governance/AllowedIpRangeControllerUnitTest.java`
+  - Services: `auth/AuthServiceTest.java`, `users/AdminUserServiceTest.java`, `approvals/ApprovalServiceTest.java`, `notifications/NotificationServiceTest.java`
+  - Repositories/boundaries: `sessions/TrainingSessionRepositoryTest.java`
+  - Auth/guards/middleware/filters: `auth/JwtAuthenticationFilterTest.java`, `common/ratelimit/RateLimitFilterTest.java`, `common/idempotency/IdempotencyInterceptorTest.java`, `common/web/RequestIdFilterTest.java`
+- Important backend modules not directly unit-tested (class-level):
+  - `repo/server/src/main/java/com/meridian/common/security/SecurityConfig.java`
+  - `repo/server/src/main/java/com/meridian/common/web/WebMvcConfig.java`
+  - `repo/server/src/main/java/com/meridian/common/security/SecurityKeysValidator.java`
+  - `repo/server/src/main/java/com/meridian/common/web/GlobalExceptionHandler.java`
+  - `repo/server/src/main/java/com/meridian/sessions/SessionMapper.java`
 
 ### Frontend Unit Tests (STRICT)
-- Frontend test files: **present** under `unit_tests/web/*.spec.ts` (48 files detected).
-- Framework/tooling evidence:
-  - Jasmine/Karma config: `web/karma.conf.js:4-10`.
-  - TS spec config: `web/tsconfig.spec.json:5-9`.
-  - Angular TestBed usage in specs: `unit_tests/web/login.component.spec.ts:20-33`.
-- Real frontend modules imported/rendered:
-  - `LoginComponent` from `web/src/app/auth/pages/login.component` (`login.component.spec.ts:5,23`).
-  - `ApiService` from `web/src/app/core/http/api.service` (`api.service.spec.ts:3`).
-- Execution wiring evidence:
-  - `run_tests.sh` copies spec mirror files into `web/src/**` before running `ng test` in Docker (`run_tests.sh:375-477`).
-
-**Frontend unit tests: PRESENT**
-
-Important frontend modules not directly evidenced as unit-tested:
-- App bootstrap/entry-level wiring (for example `web/src/main.ts`) not directly referenced by discovered unit spec files.
-- End-to-end route composition is tested primarily via Playwright E2E, not deep unit specs.
+- Frontend test files: **present** in `repo/unit_tests/web/*.spec.ts` (48 files).
+- Framework/tools detected (file evidence):
+  - Jasmine/Karma style (`describe`, `it`, `expect`) across `repo/unit_tests/web/*.spec.ts`
+  - Angular TestBed from `@angular/core/testing` in `repo/unit_tests/web/app.component.spec.ts`, `repo/unit_tests/web/login.component.spec.ts`
+  - Angular HTTP testing in `repo/unit_tests/web/login.component.spec.ts` (`provideHttpClientTesting`, `HttpTestingController`)
+- Components/modules covered (import evidence from tests):
+  - Admin pages, analytics pages, auth pages, reports pages, session pages, shared UI components, guards, interceptors, stores, db/outbox/api services.
+- Important frontend components/modules NOT tested: **none found by static import mapping** from `repo/unit_tests/web/*.spec.ts` to `repo/web/src/app/**/*.ts`.
+- **Frontend unit tests: PRESENT**
 
 ### Cross-Layer Observation
-- Backend API testing is extensive and includes true no-mock HTTP suite.
-- Frontend has substantial unit tests plus E2E suite (`e2e_tests/tests/*.spec.ts`, example `01-register-approve-login.spec.ts:12-52`).
-- Balance: generally good; not backend-only.
+- Backend and frontend both have broad unit + API coverage; testing is not backend-only.
+
+## API Observability Check
+- Strong in true no-mock suite: method/path, request payloads, and response-body assertions are explicit in `repo/server/src/test/java/com/meridian/TrueNoMockHttpApiTest.java`.
+- Weak spots exist in some MockMvc tests that assert status only (limited response observability), e.g. `repo/server/src/test/java/com/meridian/ClassificationApiTest.java`.
 
 ## Tests Check
-### API Observability Check
-- Strong in major suites: explicit endpoint paths, explicit request payloads/headers, and response body assertions.
-- Examples:
-  - True no-mock auth login asserts payload fields (`TrueNoMockHttpApiTest.java:113-126`).
-  - MockMvc auth tests assert JSON response fields (`AuthApiTest.java:52-56`, `:73-74`).
-- Weakness:
-  - Some tests allow broad status ranges (`200/404`, `409/202`, etc.), which weakens precision for behavior regression detection.
+- Success/failure/auth/validation/role-boundary coverage: strong across API and unit suites.
+- Edge/cross-tenant/cross-role checks: present (`OrgScopeApiTest`, `OrgIsolationContentApiTest`, `SensitiveDataApiTest`).
+- `run_tests.sh` check: Docker-centric execution confirmed (`docker run`, `docker compose run`).
+- Caveat: e2e branch contains conditional `npm ci` inside container (`repo/run_tests.sh`), so zero-runtime-install claim is not absolute for that path.
 
-### Test Quality & Sufficiency
-- Success/failure paths: covered across auth, sessions, reports, admin boundaries.
-- Validation/auth/permission checks: heavily present.
-- Edge-case depth: present but uneven; some tests intentionally tolerate multiple outcomes.
-- Assertion depth: mostly meaningful (status + body), not only pass/fail.
-
-### `run_tests.sh` Check
-- Docker-based backend/web test execution: yes (`run_tests.sh:473-477`).
-- Frontend unit tests are copied from mirror then executed in Docker (`run_tests.sh:375-477`).
-- E2E path includes in-container `npm ci` fallback (`run_tests.sh:557-560`): not host-local install, but still runtime dependency installation inside test container branch.
-
-### End-to-End Expectation (fullstack)
-- Real FE↔BE E2E tests exist (`e2e_tests/tests/*.spec.ts`, example includes UI + API calls: `01-register-approve-login.spec.ts:12-52`).
-- This satisfies fullstack E2E presence expectation.
+## End-to-End Expectations (Fullstack)
+- FE↔BE E2E tests are present under `repo/e2e_tests/tests/*.spec.ts` (Playwright).
 
 ## Test Coverage Score (0–100)
-**92/100**
+- **93/100**
 
 ## Score Rationale
-- + Full endpoint inventory coverage with HTTP tests.
-- + True no-mock HTTP suite covers all endpoint families through real network path.
-- + Large backend and frontend unit test surface.
-- - Precision loss in some assertions due accepted status ranges.
-- - Frontend unit tests are mirror-copied into source before run (extra indirection risk).
-- - E2E helper has runtime `npm ci` fallback in container path.
+- + Full endpoint inventory covered by HTTP tests and true no-mock HTTP evidence.
+- + Strong cross-role/auth/multi-tenant negative-path testing.
+- + Frontend unit tests are present and broad.
+- - Some MockMvc tests are status-only (reduced observability depth).
+- - Some infrastructure/config classes have no direct unit tests.
 
 ## Key Gaps
-- Some test cases intentionally accept multiple statuses (reduces strict regression sensitivity).
-- Frontend test location is indirect (`unit_tests/web` mirror + copy step), which can drift from app changes if the copy logic breaks.
-- Repository-level backend unit coverage appears narrow relative to service/controller coverage.
+- Weak observability in status-only MockMvc cases (selected API tests).
+- No direct unit tests for `SecurityConfig`, `WebMvcConfig`, `SecurityKeysValidator`, `GlobalExceptionHandler`, `SessionMapper`.
 
 ## Confidence & Assumptions
-- Confidence: **medium-high**.
-- Assumptions:
-  - `server/src/test/java` is authoritative for backend tests; `api_tests` mirrors are duplicates (`README.md:177`, `:237`).
-  - Endpoint extraction limited to Spring mapping annotations in controller classes.
-  - No runtime behavior was verified; all conclusions are static.
+- Confidence: **high** for route/test mapping (controller annotations + static call-site extraction).
+- Assumption: endpoint surface is limited to Spring `@*Mapping` in `*Controller.java` files under `repo/server/src/main/java/com/meridian`.
+- Assumption: `repo/server/src/test/java` is authoritative; `repo/api_tests` and `repo/unit_tests` include mirrors/archives per README.
 
-**Test Coverage Verdict:** PASS WITH RISKS
+## Test Coverage Audit Verdict
+- **PASS (strong)**
 
 ---
 
 # README Audit
 
-## Hard Gate Evaluation
-- README location: present at `repo/README.md`.
-- Formatting/readability: passes (clear sections, tables, commands).
-- Startup instruction (`docker-compose up` required for fullstack): passes (`README.md:38`).
-- Access method (URL + port): passes (`README.md:49-56`).
-- Verification method: passes (`README.md:58-80`).
-- Environment strictness (no local runtime installs): passes in README language (`README.md:24-27`, `:167`).
-- Demo credentials for auth project: passes (`README.md:112-122`) with username/password/role table.
+## README Presence
+- Required file exists: `repo/README.md`.
 
-## Engineering Quality
-- Tech stack clarity: strong (`README.md:9-18`).
-- Architecture/deployment flow: documented (`README.md:186-191`).
-- Test instructions: detailed (`README.md:124-167`).
-- Security/roles: credentials and roles documented; auth workflows implied.
-- Workflow guidance/troubleshooting: present (`README.md:82-110`).
+## Hard Gate Check
+- Formatting/readability: **PASS**
+- Project type declaration near top: **PASS** (`fullstack`)
+- Startup instruction includes `docker-compose up`: **PASS** (`repo/README.md`, Quick Start)
+- Access method (URL + port): **PASS** (`https://localhost:8443/`, API URLs/ports documented)
+- Verification method: **PASS** (curl API checks + UI smoke steps)
+- Environment rules (no local runtime install instructions): **PASS** (README explicitly forbids host runtime installs)
+- Demo credentials with roles (auth exists): **PASS** (admin, student1, student2, mentor1, faculty1 all documented)
 
 ## High Priority Issues
 - None.
 
 ## Medium Priority Issues
-- Minor consistency risk: README claims Playwright image has runtime dependencies preinstalled (`README.md:150`), while `run_tests.sh` retains `npm ci` fallback for E2E (`run_tests.sh:557-560`). This is not a hard-gate failure but is documentation-to-script mismatch risk.
+- README claims no runtime install steps are needed in user workflows, but the `--e2e` path in `repo/run_tests.sh` includes a conditional `npm ci` inside container. This is Docker-contained, but still a runtime dependency installation path.
 
 ## Low Priority Issues
-- Dual command style (`docker-compose` and `docker compose`) may be mildly redundant but acceptable.
-- README could explicitly call out that frontend unit specs are stored in `unit_tests/web` then copied before run, to match script behavior.
+- Minor command-style duplication (`docker-compose` and `docker compose`) increases command surface.
 
 ## Hard Gate Failures
 - None.
 
-## README Verdict (PASS / PARTIAL PASS / FAIL)
-**PASS**
+## Engineering Quality Notes
+- Tech stack clarity: strong.
+- Architecture explanation: adequate and concrete.
+- Test workflow guidance: detailed and mostly consistent.
+- Security/role clarity: good (credentials and role matrix documented).
+- Presentation quality: high.
 
-**README Verdict:** PASS
+## README Verdict (PASS / PARTIAL PASS / FAIL)
+- **PASS**
