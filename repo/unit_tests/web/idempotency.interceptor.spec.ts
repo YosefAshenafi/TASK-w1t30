@@ -1,4 +1,4 @@
-import { HttpRequest, HttpResponse } from '@angular/common/http';
+import { HttpHeaders, HttpRequest, HttpResponse } from '@angular/common/http';
 import { of } from 'rxjs';
 import { idempotencyInterceptor } from '../../web/src/app/core/http/idempotency.interceptor';
 
@@ -18,7 +18,7 @@ describe('idempotencyInterceptor', () => {
 
   it('preserves existing Idempotency-Key when already set', () => {
     const req = new HttpRequest('PATCH', '/api/v1/sessions/1', { a: 1 }, {
-      headers: { 'Idempotency-Key': 'existing-key' },
+      headers: new HttpHeaders({ 'Idempotency-Key': 'existing-key' }),
     });
     let seen: HttpRequest<unknown> | null = null;
 
