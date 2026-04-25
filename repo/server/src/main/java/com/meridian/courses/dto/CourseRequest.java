@@ -8,8 +8,7 @@ import java.util.UUID;
 public record CourseRequest(
         @NotBlank String code,
         @NotBlank String title,
-        @NotBlank @Pattern(regexp = "\\d{4}\\.\\d+", message = "Version must match pattern YYYY.N (e.g. 2024.1)")
-        String version,
+        @NotBlank String version,
         UUID locationId,
         UUID instructorId,
         @Pattern(regexp = "PUBLIC|INTERNAL|CONFIDENTIAL|RESTRICTED")

@@ -36,7 +36,7 @@ class BackupRunnerTest {
                 "jdbc:postgresql://localhost:5432/meridian");
         ReflectionTestUtils.setField(backupRunner, "datasourceUsername", "meridian");
         ReflectionTestUtils.setField(backupRunner, "datasourcePassword", "secret");
-        when(backupPolicyRepository.findAll()).thenReturn(Collections.emptyList());
+        lenient().when(backupPolicyRepository.findAll()).thenReturn(Collections.emptyList());
     }
 
     // ---- parseJdbcUrl tests (pure logic, no process spawning) ----
@@ -87,12 +87,10 @@ class BackupRunnerTest {
 
     @Test
     void execute_pgDumpFailure_setsStatusFailed() {
-        // Arrange: datasource URL is valid but pg_dump will not be on test classpath
-        // so the IOException / non-zero exit sets FAILED status.
         BackupRun run = new BackupRun();
         run.setId(UUID.randomUUID());
         run.setType("FULL");
-        when(backupRunRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        lenient().when(backupRunRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         backupRunner.execute(run);
 
@@ -102,17 +100,15 @@ class BackupRunnerTest {
 
     @Test
     void execute_ioException_setsStatusFailed() {
-        // Override path to a non-existent binary to force IOException on ProcessBuilder.start()
         ReflectionTestUtils.setField(backupRunner, "datasourceUrl",
                 "jdbc:postgresql://localhost:5432/meridian");
         BackupRun run = new BackupRun();
         run.setId(UUID.randomUUID());
         run.setType("INCREMENTAL");
-        when(backupRunRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        lenient().when(backupRunRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         backupRunner.execute(run);
 
-        // Either succeeded (if pg_dump present) or failed — status must be set
         assertThat(run.getStatus()).isNotNull();
         assertThat(run.getCompletedAt()).isNotNull();
     }

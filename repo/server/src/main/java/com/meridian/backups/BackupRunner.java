@@ -99,7 +99,10 @@ public class BackupRunner {
         String stripped = url.startsWith("jdbc:") ? url.substring("jdbc:".length()) : url;
         try {
             URI uri = URI.create(stripped);
-            String host = uri.getHost() != null ? uri.getHost() : "localhost";
+            String host = uri.getHost();
+            if (host == null || host.isBlank()) {
+                return new JdbcTarget("localhost", 5432, "meridian");
+            }
             int port = uri.getPort() > 0 ? uri.getPort() : 5432;
             String path = uri.getPath() != null ? uri.getPath() : "";
             String database = path.startsWith("/") ? path.substring(1) : path;

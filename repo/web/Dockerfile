@@ -22,7 +22,7 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/package*.json /app/
 COPY . .
-CMD ["npx","ng","test","--watch=false","--browsers=ChromeHeadlessCI","--no-progress"]
+CMD ["./node_modules/.bin/ng","test","--watch=false","--browsers=ChromeHeadlessCI","--no-progress"]
 
 FROM nginx:1.25-alpine AS runtime
 COPY --from=build /app/dist/meridian-web /usr/share/nginx/html

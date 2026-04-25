@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnTransformer;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -19,6 +20,7 @@ public class AllowedIpRange {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @ColumnTransformer(write = "CAST(? AS cidr)")
     @Column(nullable = false, columnDefinition = "cidr")
     private String cidr;
 

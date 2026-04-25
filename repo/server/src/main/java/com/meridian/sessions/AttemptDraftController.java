@@ -116,7 +116,7 @@ public class AttemptDraftController {
             AssessmentAttempt a = new AssessmentAttempt();
             a.setStudentId(studentId);
             a.setItemId(draft.getItemId());
-            a.setChosenAnswer(draft.getChosenAnswer());
+            a.setChosenAnswer(asJsonValue(draft.getChosenAnswer()));
             a.setAttemptedAt(now);
             AssessmentItem item = itemMap.get(draft.getItemId());
             if (item != null) {
@@ -134,6 +134,16 @@ public class AttemptDraftController {
             idempotencyService.store(idempotencyKey, studentId, requestHash, result);
         }
         return ResponseEntity.ok(result);
+    }
+
+    private String asJsonValue(String raw) {
+        if (raw == null) return null;
+        try {
+            objectMapper.readTree(raw);
+            return raw;
+        } catch (Exception e) {
+            return objectMapper.valueToTree(raw).toString();
+        }
     }
 
     private Boolean evaluateCorrectness(String choices, String chosenAnswer) {

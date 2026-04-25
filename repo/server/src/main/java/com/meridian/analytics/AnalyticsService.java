@@ -36,7 +36,8 @@ public class AnalyticsService {
                        OR EXISTS(SELECT 1 FROM courses cloc WHERE cloc.id = ai.course_id AND cloc.location_id = CAST(:locationId AS uuid)))
                   AND (CAST(:instructorId AS uuid) IS NULL
                        OR EXISTS(SELECT 1 FROM cohorts co2 JOIN enrollments enr2 ON enr2.cohort_id = co2.id
-                                 WHERE enr2.student_id = aa.student_id AND co2.instructor_id = CAST(:instructorId AS uuid)))
+                                 JOIN courses coi ON coi.id = co2.course_id
+                                 WHERE enr2.student_id = aa.student_id AND coi.instructor_id = CAST(:instructorId AS uuid)))
                   AND (:courseVersion IS NULL
                        OR EXISTS(SELECT 1 FROM courses cv WHERE cv.id = ai.course_id AND cv.version = :courseVersion))
                 GROUP BY 1
@@ -73,7 +74,8 @@ public class AnalyticsService {
                        OR EXISTS(SELECT 1 FROM courses cloc WHERE cloc.id = ai.course_id AND cloc.location_id = CAST(:locationId AS uuid)))
                   AND (CAST(:instructorId AS uuid) IS NULL
                        OR EXISTS(SELECT 1 FROM cohorts co2 JOIN enrollments enr2 ON enr2.cohort_id = co2.id
-                                 WHERE enr2.student_id = aa.student_id AND co2.instructor_id = CAST(:instructorId AS uuid)))
+                                 JOIN courses coi ON coi.id = co2.course_id
+                                 WHERE enr2.student_id = aa.student_id AND coi.instructor_id = CAST(:instructorId AS uuid)))
                   AND (:courseVersion IS NULL
                        OR EXISTS(SELECT 1 FROM courses cv WHERE cv.id = ai.course_id AND cv.version = :courseVersion))
                 GROUP BY aa.item_id, ai.stem, aa.chosen_answer::text
@@ -112,7 +114,8 @@ public class AnalyticsService {
                        OR EXISTS(SELECT 1 FROM courses cloc WHERE cloc.id = ai.course_id AND cloc.location_id = CAST(:locationId AS uuid)))
                   AND (CAST(:instructorId AS uuid) IS NULL
                        OR EXISTS(SELECT 1 FROM cohorts co2 JOIN enrollments enr2 ON enr2.cohort_id = co2.id
-                                 WHERE enr2.student_id = aa.student_id AND co2.instructor_id = CAST(:instructorId AS uuid)))
+                                 JOIN courses coi ON coi.id = co2.course_id
+                                 WHERE enr2.student_id = aa.student_id AND coi.instructor_id = CAST(:instructorId AS uuid)))
                   AND (:courseVersion IS NULL
                        OR EXISTS(SELECT 1 FROM courses cv WHERE cv.id = ai.course_id AND cv.version = :courseVersion))
                 GROUP BY kp.id, kp.name
@@ -147,7 +150,8 @@ public class AnalyticsService {
                        OR EXISTS(SELECT 1 FROM courses cloc WHERE cloc.id = ai.course_id AND cloc.location_id = CAST(:locationId AS uuid)))
                   AND (CAST(:instructorId AS uuid) IS NULL
                        OR EXISTS(SELECT 1 FROM cohorts co2 JOIN enrollments enr2 ON enr2.cohort_id = co2.id
-                                 WHERE enr2.student_id = aa.student_id AND co2.instructor_id = CAST(:instructorId AS uuid)))
+                                 JOIN courses coi ON coi.id = co2.course_id
+                                 WHERE enr2.student_id = aa.student_id AND coi.instructor_id = CAST(:instructorId AS uuid)))
                   AND (:courseVersion IS NULL
                        OR EXISTS(SELECT 1 FROM courses cv WHERE cv.id = ai.course_id AND cv.version = :courseVersion))
                 GROUP BY ai.id, ai.difficulty, ai.discrimination
