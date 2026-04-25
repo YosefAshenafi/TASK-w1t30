@@ -23,7 +23,7 @@ describe('roleGuard', () => {
   });
 
   it('returns true when user role matches required role', () => {
-    const route = { data: { roles: ['ADMIN'] } } as ActivatedRouteSnapshot;
+    const route = { data: { roles: ['ADMIN'] } } as unknown as ActivatedRouteSnapshot;
     const state = { url: '/admin/users' } as RouterStateSnapshot;
     spyOn(authStore, 'userRole').and.returnValue('ADMIN');
 
@@ -32,7 +32,7 @@ describe('roleGuard', () => {
   });
 
   it('redirects to /home when role does not match', () => {
-    const route = { data: { roles: ['ADMIN'] } } as ActivatedRouteSnapshot;
+    const route = { data: { roles: ['ADMIN'] } } as unknown as ActivatedRouteSnapshot;
     const state = { url: '/admin/users' } as RouterStateSnapshot;
     spyOn(authStore, 'userRole').and.returnValue('STUDENT');
 

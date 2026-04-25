@@ -51,7 +51,8 @@ public class CourseController {
                 : List.of("PUBLIC", "INTERNAL");
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        Page<Course> result = courseRepository.findFiltered(version, location, instructor, allowedClassifications, q, pageable);
+        String qLike = q != null && !q.isBlank() ? "%" + q.toLowerCase() + "%" : null;
+        Page<Course> result = courseRepository.findFiltered(version, location, instructor, allowedClassifications, qLike, pageable);
 
         List<CourseDto> items = result.getContent().stream()
                 .filter(c -> classificationPolicy.canView(c.getClassification(), role))

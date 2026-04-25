@@ -170,7 +170,13 @@ public class SessionController {
         Instant toInstant = to != null ? Instant.parse(to) : null;
         size = Math.min(size, 200);
 
-        if ("CORPORATE_MENTOR".equals(role) && principal.organizationId() == null) {
+        UUID orgId = principal.organizationId();
+        if ("CORPORATE_MENTOR".equals(role) && orgId == null) {
+            orgId = userRepository.findById(principal.userId())
+                    .map(com.meridian.auth.entity.User::getOrganizationId)
+                    .orElse(null);
+        }
+        if ("CORPORATE_MENTOR".equals(role) && orgId == null) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "Corporate mentor has no organization scope");
         }
@@ -181,7 +187,7 @@ public class SessionController {
         PageRequest pageable = PageRequest.of(page, size, Sort.by("started_at").descending());
         Page<TrainingSession> result;
         if ("CORPORATE_MENTOR".equals(role)) {
-            result = sessionRepo.findFilteredByOrg(principal.organizationId().toString(), studentIdStr,
+            result = sessionRepo.findFilteredByOrg(orgId.toString(), studentIdStr,
                     statusArg, fromStr, toStr, pageable);
         } else {
             result = sessionRepo.findFiltered(studentIdStr, statusArg, fromStr, toStr, pageable);

@@ -21,14 +21,14 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
              AND (:locationId IS NULL OR c.locationId = :locationId)
              AND (:instructorId IS NULL OR c.instructorId = :instructorId)
              AND (:#{#classifications} IS NULL OR c.classification IN :classifications)
-             AND (:q IS NULL OR LOWER(c.code) LIKE LOWER(CONCAT('%', :q, '%'))
-                             OR LOWER(c.title) LIKE LOWER(CONCAT('%', :q, '%')))
+             AND (:qLike IS NULL OR LOWER(c.code) LIKE :qLike
+                             OR LOWER(c.title) LIKE :qLike)
            """)
     Page<Course> findFiltered(@Param("version") String version,
                               @Param("locationId") UUID locationId,
                               @Param("instructorId") UUID instructorId,
                               @Param("classifications") Collection<String> classifications,
-                              @Param("q") String q,
+                              @Param("qLike") String qLike,
                               Pageable pageable);
 
     @Query("SELECT c FROM Course c WHERE c.deletedAt IS NOT NULL ORDER BY c.deletedAt DESC")

@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { HttpRequest, HttpResponse } from '@angular/common/http';
+import { HttpHeaders, HttpRequest, HttpResponse } from '@angular/common/http';
 import { of } from 'rxjs';
 import { offlineInterceptor } from './offline.interceptor';
 import { NetworkStatusService } from '../stores/network-status.service';
@@ -17,13 +17,13 @@ describe('offlineInterceptor', () => {
     });
 
     const req = new HttpRequest('POST', '/api/v1/sessions/sync', { x: 1 }, {
-      headers: { 'Idempotency-Key': 'offline-key' },
+      headers: new HttpHeaders({ 'Idempotency-Key': 'offline-key' }),
     });
 
     TestBed.runInInjectionContext(() =>
       offlineInterceptor(req, () => of(new HttpResponse({ status: 200 })))
     ).subscribe(resp => {
-      expect(resp.status).toBe(202);
+      expect((resp as HttpResponse<unknown>).status).toBe(202);
       expect(enqueueSpy).toHaveBeenCalled();
       done();
     });
@@ -42,7 +42,7 @@ describe('offlineInterceptor', () => {
     TestBed.runInInjectionContext(() =>
       offlineInterceptor(req, () => of(new HttpResponse({ status: 200, body: { ok: true } })))
     ).subscribe(resp => {
-      expect(resp.status).toBe(200);
+      expect((resp as HttpResponse<unknown>).status).toBe(200);
       done();
     });
   });

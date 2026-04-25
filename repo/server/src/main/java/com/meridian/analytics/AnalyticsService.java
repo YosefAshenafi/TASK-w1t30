@@ -38,8 +38,8 @@ public class AnalyticsService {
                        OR EXISTS(SELECT 1 FROM cohorts co2 JOIN enrollments enr2 ON enr2.cohort_id = co2.id
                                  JOIN courses coi ON coi.id = co2.course_id
                                  WHERE enr2.student_id = aa.student_id AND coi.instructor_id = CAST(:instructorId AS uuid)))
-                  AND (:courseVersion IS NULL
-                       OR EXISTS(SELECT 1 FROM courses cv WHERE cv.id = ai.course_id AND cv.version = :courseVersion))
+                  AND (CAST(:courseVersion AS text) IS NULL
+                       OR EXISTS(SELECT 1 FROM courses cv WHERE cv.id = ai.course_id AND cv.version = CAST(:courseVersion AS text)))
                 GROUP BY 1
                 ORDER BY 1
                 """;
@@ -76,8 +76,8 @@ public class AnalyticsService {
                        OR EXISTS(SELECT 1 FROM cohorts co2 JOIN enrollments enr2 ON enr2.cohort_id = co2.id
                                  JOIN courses coi ON coi.id = co2.course_id
                                  WHERE enr2.student_id = aa.student_id AND coi.instructor_id = CAST(:instructorId AS uuid)))
-                  AND (:courseVersion IS NULL
-                       OR EXISTS(SELECT 1 FROM courses cv WHERE cv.id = ai.course_id AND cv.version = :courseVersion))
+                  AND (CAST(:courseVersion AS text) IS NULL
+                       OR EXISTS(SELECT 1 FROM courses cv WHERE cv.id = ai.course_id AND cv.version = CAST(:courseVersion AS text)))
                 GROUP BY aa.item_id, ai.stem, CAST(aa.chosen_answer AS text)
                 ORDER BY cnt DESC
                 LIMIT 200
@@ -116,8 +116,8 @@ public class AnalyticsService {
                        OR EXISTS(SELECT 1 FROM cohorts co2 JOIN enrollments enr2 ON enr2.cohort_id = co2.id
                                  JOIN courses coi ON coi.id = co2.course_id
                                  WHERE enr2.student_id = aa.student_id AND coi.instructor_id = CAST(:instructorId AS uuid)))
-                  AND (:courseVersion IS NULL
-                       OR EXISTS(SELECT 1 FROM courses cv WHERE cv.id = ai.course_id AND cv.version = :courseVersion))
+                  AND (CAST(:courseVersion AS text) IS NULL
+                       OR EXISTS(SELECT 1 FROM courses cv WHERE cv.id = ai.course_id AND cv.version = CAST(:courseVersion AS text)))
                 GROUP BY kp.id, kp.name
                 ORDER BY mastery_pct ASC
                 LIMIT 50
@@ -152,8 +152,8 @@ public class AnalyticsService {
                        OR EXISTS(SELECT 1 FROM cohorts co2 JOIN enrollments enr2 ON enr2.cohort_id = co2.id
                                  JOIN courses coi ON coi.id = co2.course_id
                                  WHERE enr2.student_id = aa.student_id AND coi.instructor_id = CAST(:instructorId AS uuid)))
-                  AND (:courseVersion IS NULL
-                       OR EXISTS(SELECT 1 FROM courses cv WHERE cv.id = ai.course_id AND cv.version = :courseVersion))
+                  AND (CAST(:courseVersion AS text) IS NULL
+                       OR EXISTS(SELECT 1 FROM courses cv WHERE cv.id = ai.course_id AND cv.version = CAST(:courseVersion AS text)))
                 GROUP BY ai.id, ai.difficulty, ai.discrimination
                 ORDER BY attempts DESC
                 LIMIT 200
