@@ -118,7 +118,7 @@ public class AnalyticsController {
     private void enforceOrgScope(UUID learnerId, Authentication auth) {
         AuthPrincipal principal = AuthPrincipal.of(auth);
         if ("CORPORATE_MENTOR".equals(principal.role())) {
-            UUID orgId = requireOrgScope(principal);
+            UUID orgId = resolveMentorOrg(principal);
             if (learnerId != null) {
                 boolean inOrg = userRepository.findById(learnerId)
                         .map(u -> orgId.equals(u.getOrganizationId()))
@@ -130,18 +130,33 @@ public class AnalyticsController {
         }
     }
 
-    private UUID requireOrgScope(AuthPrincipal principal) {
+    /**
+     * Returns the corporate mentor's organization id. Prefers the value already on the
+     * principal; falls back to a user-repo lookup for cases where the security context
+     * carries only a username (e.g. {@code @WithMockUser} test setups, or filters that
+     * have not yet enriched the principal). Throws 403 if no org can be resolved.
+     */
+    private UUID resolveMentorOrg(AuthPrincipal principal) {
         UUID orgId = principal.organizationId();
+        if (orgId == null) {
+            orgId = userRepository.findById(principal.userId())
+                    .map(u -> u.getOrganizationId())
+                    .orElse(null);
+        }
         if (orgId == null) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: no org scope");
         }
         return orgId;
     }
 
+    private UUID requireOrgScope(AuthPrincipal principal) {
+        return resolveMentorOrg(principal);
+    }
+
     private UUID extractOrgFilter(UUID learnerId, Authentication auth) {
         AuthPrincipal principal = AuthPrincipal.of(auth);
         if ("CORPORATE_MENTOR".equals(principal.role())) {
-            return requireOrgScope(principal);
+            return resolveMentorOrg(principal);
         }
         return null;
     }
