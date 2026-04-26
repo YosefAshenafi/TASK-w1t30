@@ -36,6 +36,14 @@ interface Page<T> { items: T[]; page: number; size: number; total: number; }
 
 ---
 
+## 0.1 Health
+
+```
+GET /health   -> { status: string; timestamp: ISODateTime }   // public, no auth
+```
+
+---
+
 ## 1. Authentication & Accounts
 
 ### 1.1 Register
@@ -91,16 +99,20 @@ POST /auth/refresh    { refreshToken } -> LoginResponse
 POST /auth/logout     { refreshToken } -> 204
 ```
 
-### 1.4 Admin approvals
+### 1.4 Admin user management
 
 ```
-GET  /admin/users?status=PENDING                 -> Page<UserSummary>
-POST /admin/users/{id}/approve                   -> 204
-POST /admin/users/{id}/reject  { reason }        -> 204
-POST /admin/users/{id}/unlock                    -> 204
+GET   /admin/users?status=&role=&orgId=&orgCode=  -> Page<UserSummary>
+GET   /admin/users/{id}                           -> UserSummary
+POST  /admin/users/{id}/approve                   -> 204
+POST  /admin/users/{id}/reject  { reason }        -> 204
+POST  /admin/users/{id}/unlock                    -> 204
+PATCH /admin/users/{id}/status  { status, reason} -> ApprovalRequest
 ```
 
 ### 1.5 User profile
+
+`GET /users/me -> UserProfile`
 
 ```ts
 interface UserProfile {
@@ -159,9 +171,31 @@ Endpoints:
 GET    /courses?version=&location=&instructor=&q=       -> Page<Course>
 POST   /courses                                         -> Course
 PUT    /courses/{id}                                    -> Course
+DELETE /courses/{id}                                    -> 204
 GET    /courses/{id}/cohorts                            -> Cohort[]
 GET    /courses/{id}/assessment-items                   -> Page<AssessmentItem>
-POST   /assessment-items                                -> AssessmentItem
+GET    /courses/{courseId}/activities                   -> Activity[]
+POST   /courses/{courseId}/activities                   -> Activity
+GET    /courses/{courseId}/knowledge-points             -> KnowledgePoint[]
+POST   /courses/{courseId}/knowledge-points             -> KnowledgePoint
+POST   /assessment-items                                -> AssessmentItem     (ADMIN | FACULTY_MENTOR)
+PUT    /assessment-items/{id}                           -> AssessmentItem     (ADMIN | FACULTY_MENTOR)
+```
+
+```ts
+interface Activity {
+  id: UUID;
+  courseId: UUID;
+  name: string;
+  description: string | null;
+}
+
+interface KnowledgePoint {
+  id: UUID;
+  courseId: UUID;
+  name: string;
+  description: string | null;
+}
 ```
 
 ---
@@ -198,14 +232,36 @@ interface SessionActivitySet {
 Endpoints:
 
 ```
-POST /sessions                                    -> TrainingSession          (201)
-PATCH /sessions/{id}                              -> TrainingSession          (200)
-POST /sessions/{id}/continue                      -> TrainingSession          (200)   // one-tap resume
-POST /sessions/{id}/complete                      -> TrainingSession          (200)
-POST /sessions/{id}/sets                          -> SessionActivitySet       (201)
-PATCH /sessions/{id}/sets/{setId}                 -> SessionActivitySet       (200)
-POST /sessions/sync                               -> SyncResult               (200)   // bulk replay
-GET  /sessions?studentId=&from=&to=               -> Page<TrainingSession>
+POST  /sessions                                         -> TrainingSession          (201)
+GET   /sessions?studentId=&learnerId=&status=&from=&to= -> Page<TrainingSession>
+GET   /sessions/{id}                                    -> TrainingSession
+PATCH /sessions/{id}                                    -> TrainingSession          (200)
+POST  /sessions/{id}/pause                              -> TrainingSession          (200)
+POST  /sessions/{id}/continue                           -> TrainingSession          (200)   // one-tap resume
+POST  /sessions/{id}/complete                           -> TrainingSession          (200)
+POST  /sessions/{id}/sets                               -> SessionActivitySet       (201)
+PATCH /sessions/{id}/sets/{setId}                       -> SessionActivitySet       (200)
+POST  /sessions/sync                                    -> SyncResult               (200)   // bulk replay (STUDENT only)
+POST  /sessions/attempt-drafts                          -> AttemptDraft             (201)
+GET   /sessions/{sessionId}/attempt-drafts              -> AttemptDraft[]
+DELETE /sessions/{sessionId}/attempt-drafts             -> 204
+POST  /sessions/{sessionId}/submit-attempts             -> SubmitResult             (200)   // Idempotency-Key required
+```
+
+```ts
+interface AttemptDraft {
+  id: UUID;
+  sessionId: UUID;
+  itemId: UUID;
+  selectedChoiceIds: string[];
+  shortAnswer: string | null;
+  createdAt: ISODateTime;
+}
+
+interface SubmitResult {
+  attemptIds: UUID[];
+  masteryUpdated: boolean;
+}
 ```
 
 ```ts
@@ -308,13 +364,15 @@ interface ReportRun {
 Endpoints:
 
 ```
-POST /reports                 -> ReportRun     (202 accepted, may be NEEDS_APPROVAL)
-GET  /reports/{id}            -> ReportRun
-GET  /reports                 -> Page<ReportRun>
-POST /reports/{id}/cancel     -> 204
-GET  /reports/schedules       -> Page<ReportSchedule>
-POST /reports/schedules       -> ReportSchedule
-DELETE /reports/schedules/{id}-> 204
+POST   /reports                    -> ReportRun     (202 accepted, may be NEEDS_APPROVAL)
+GET    /reports                    -> Page<ReportRun>
+GET    /reports/{id}               -> ReportRun
+GET    /reports/{id}/download      -> file stream   (only when status = SUCCEEDED)
+POST   /reports/{id}/cancel        -> 204
+GET    /reports/schedules          -> Page<ReportSchedule>
+POST   /reports/schedules          -> ReportSchedule
+PUT    /reports/schedules/{id}     -> ReportSchedule
+DELETE /reports/schedules/{id}     -> 204
 ```
 
 **Approval threshold**: `rowCount > 10000` OR `classification = 'RESTRICTED'` ⇒ auto-enters `NEEDS_APPROVAL`; the run does not execute until an Administrator approves.
@@ -342,9 +400,9 @@ interface ApprovalRequest {
 ```
 
 ```
-GET  /approvals?status=PENDING              -> Page<ApprovalRequest>
-POST /approvals/{id}/approve  { reason? }   -> ApprovalRequest
-POST /approvals/{id}/reject   { reason }    -> ApprovalRequest
+GET  /admin/approvals?status=PENDING              -> Page<ApprovalRequest>   (ADMIN only)
+POST /admin/approvals/{id}/approve  { reason? }   -> ApprovalRequest         (ADMIN only)
+POST /admin/approvals/{id}/reject   { reason }    -> ApprovalRequest         (ADMIN only)
 ```
 
 ---
@@ -375,9 +433,11 @@ interface InAppNotification {
 
 ```
 GET    /notifications?unread=true           -> Page<InAppNotification>
+GET    /notifications/unread-count          -> { count: number }
 POST   /notifications/{id}/read             -> 204
-GET    /admin/notification-templates        -> Page<NotificationTemplate>
-PUT    /admin/notification-templates/{key}  -> NotificationTemplate
+POST   /notifications/read-all              -> 204
+GET    /admin/notification-templates        -> Page<NotificationTemplate>   (ADMIN only)
+PUT    /admin/notification-templates/{key}  -> NotificationTemplate         (ADMIN only)
 ```
 
 ---
@@ -422,11 +482,12 @@ Anomaly triggers (server-side, evaluated each minute):
 ## 9. Recycle Bin & Backups
 
 ```
+GET    /admin/recycle-bin/policy                        -> RetentionPolicy
 GET    /admin/recycle-bin?type=users|enrollments|...    -> Page<RecycleBinEntry>
 POST   /admin/recycle-bin/{type}/{id}/restore           -> 204
 DELETE /admin/recycle-bin/{type}/{id}                   -> 204   // hard-delete, audited
 
-GET    /admin/backups                                   -> BackupRun[]
+GET    /admin/backups                                   -> Page<BackupRun>
 POST   /admin/backups/run?mode=FULL|INCREMENTAL         -> BackupRun   (202)
 GET    /admin/backups/policy                            -> BackupPolicy
 PUT    /admin/backups/policy                            -> BackupPolicy
